@@ -1,0 +1,2324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Quantify cyber risk scenarios with the FAIR model. Runs entirely in your browser; nothing is sent to a server.">
+<meta name="theme-color" content="#0D6A62" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141E1D" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-title" content="FAIR Risk">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-style:normal;font-weight:600;font-display:swap;src:url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans Condensed";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/ibm-plex-sans-condensed-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans Condensed";font-style:normal;font-weight:600;font-display:swap;src:url("fonts/ibm-plex-sans-condensed-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2")}
+</style>
+<title>FAIR Risk Calculator</title>
+<style>
+/* Layout: a risk analyst's worksheet. Inputs on the left in analysis order (scope, frequency, magnitude),
+   a sticky results panel on the right; one column on phones with a compact summary bar. */
+:root {
+  --bg: #ECF0EF;
+  --surface: #FFFFFF;
+  --surface-2: #F5F8F7;
+  --ink: #132120;
+  --muted: #566563;
+  --rule: #D2DAD8;
+  --accent: #0D6A62;
+  --accent-soft: #DDEDEA;
+  --loss: #B5470F;
+  --loss-soft: #F5E2D5;
+  --warn: #8C5300;
+  --warn-soft: #F7EAD2;
+  --error: #B42318;
+  --error-soft: #FBE9E7;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1413;
+    --surface: #141E1D;
+    --surface-2: #1A2625;
+    --ink: #E2EAE8;
+    --muted: #93A3A0;
+    --rule: #2A3836;
+    --accent: #45B7A9;
+    --accent-soft: #163330;
+    --loss: #EE8C52;
+    --loss-soft: #3B2519;
+    --warn: #E3AC4F;
+    --warn-soft: #3A2C14;
+    --error: #F2857A;
+    --error-soft: #3B1C19;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1413;
+  --surface: #141E1D;
+  --surface-2: #1A2625;
+  --ink: #E2EAE8;
+  --muted: #93A3A0;
+  --rule: #2A3836;
+  --accent: #45B7A9;
+  --accent-soft: #163330;
+  --loss: #EE8C52;
+  --loss-soft: #3B2519;
+  --warn: #E3AC4F;
+  --warn-soft: #3A2C14;
+  --error: #F2857A;
+  --error-soft: #3B1C19;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+  -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 720px) {
+  body {
+    padding-left: max(32px, env(safe-area-inset-left, 0px));
+    padding-right: max(32px, env(safe-area-inset-right, 0px));
+  }
+}
+@media (max-width: 979px) { body { padding-block: 0 96px; } }
+
+.wrap { max-width: 1280px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; }
+a { color: var(--accent); text-underline-offset: 2px; }
+.muted { color: var(--muted); }
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Header */
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 32px;
+  padding-block: 28px 20px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+.top h1 {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.4rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.lede { margin: 8px 0 0; color: var(--muted); max-width: 60ch; }
+.runmeta {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two panes */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (min-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr); }
+  .results {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 16px);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+.inputs { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.panel, .results {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 18px 18px 20px;
+  min-width: 0;
+}
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+.panel h2, .results h2 {
+  margin: 3px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+.panel-def { margin: 0 0 14px; color: var(--muted); font-size: 14px; max-width: 62ch; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.neutral { background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--rule); }
+
+/* Scope */
+.scope-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 560px) {
+  .scope-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .span2 { grid-column: 1 / -1; }
+}
+.field { display: grid; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+
+input[type="text"], select, textarea {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 7px 9px;
+}
+textarea { resize: vertical; line-height: 1.45; }
+select { appearance: auto; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, summary:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+input[aria-invalid="true"] { border-color: var(--error); background: var(--error-soft); }
+
+/* Segmented control */
+.seg {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface-2);
+  max-width: 100%;
+}
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.seg label {
+  padding: 5px 11px;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.seg input:checked + label { background: var(--surface); color: var(--ink); font-weight: 500; box-shadow: 0 0 0 1px var(--rule); }
+.seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 1px; }
+.seg-sm label { padding: 3px 9px; font-size: 12.5px; }
+.freq-mode { margin-bottom: 6px; }
+
+/* Factor rows */
+.factor { display: grid; gap: 6px; padding-block: 16px; border-top: 1px solid var(--rule); min-width: 0; }
+.factor-block > .factor:first-child { border-top: 0; }
+.factor.sub { border-top: 0; padding-block: 10px 4px; padding-left: 14px; border-left: 2px solid var(--rule); }
+.factor-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.factor-name { font-weight: 600; }
+.factor.sub .factor-name { font-weight: 500; }
+.unit { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+.factor-def { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 62ch; }
+.triple-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; margin-top: 2px; }
+.triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: 1 1 260px; min-width: 0; }
+.cell { display: grid; gap: 3px; font-size: 12px; color: var(--muted); min-width: 0; }
+.cell input { font-family: var(--font-data); font-size: 14px; font-variant-numeric: tabular-nums; }
+.spark { flex: 0 0 auto; display: block; width: 120px; height: 40px; }
+.spark-area { fill: var(--accent-soft); }
+.spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.spark-base { stroke: var(--rule); stroke-width: 1; }
+.spark-mode { stroke: var(--accent); stroke-width: 1.5; }
+.factor-err { margin: 0; color: var(--error); font-size: 13px; }
+.derived { margin: 10px 0 0; font-size: 14px; }
+.derived b, .readout b { font-family: var(--font-data); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.readout {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 14px;
+  display: grid;
+  gap: 2px;
+}
+.readout .sub { color: var(--muted); font-size: 13px; }
+
+details.more { margin-top: 14px; font-size: 14px; }
+details.more summary, details.settings summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 14px;
+  width: fit-content;
+}
+details.more[open] summary { margin-bottom: 8px; }
+.table-scroll { overflow-x: auto; }
+table.forms { border-collapse: collapse; width: 100%; min-width: 420px; font-size: 13.5px; }
+table.forms th, table.forms td { text-align: left; vertical-align: top; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--rule); }
+table.forms th { font-weight: 600; font-size: 12px; color: var(--muted); }
+.tag { font-family: var(--font-data); font-size: 11.5px; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.tag.p { background: var(--accent-soft); color: var(--accent); }
+.tag.s { background: var(--loss-soft); color: var(--loss); }
+.tips { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 64ch; }
+
+/* Results */
+.results { display: flex; flex-direction: column; gap: 20px; }
+.res-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 12px; }
+.res-sub { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+.res-body { display: flex; flex-direction: column; gap: 20px; transition: opacity 0.15s ease; }
+.results.stale .res-body { opacity: 0.5; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface-2);
+  min-width: 0;
+}
+.tile .k { font-size: 12.5px; color: var(--muted); line-height: 1.3; }
+.tile .v {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 1.25rem + 1vw, 2.05rem);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.tile .s { font-family: var(--font-data); font-size: 11.5px; color: var(--muted); }
+@media (max-width: 560px) {
+  .tiles { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .tile {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "k v" "s v";
+    align-items: center;
+    column-gap: 12px;
+    padding: 10px 12px;
+  }
+  .tile .k { grid-area: k; }
+  .tile .s { grid-area: s; }
+  .tile .v { grid-area: v; font-size: 1.55rem; text-align: right; }
+}
+
+.block-title { margin: 0 0 8px; font-size: 13.5px; font-weight: 600; }
+.block-title span { font-weight: 400; color: var(--muted); }
+
+.pctl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.pctl > div { display: grid; gap: 1px; padding: 8px 9px; border-left: 1px solid var(--rule); min-width: 0; }
+.pctl > div:first-child { border-left: 0; }
+.pctl .k { font-size: 11.5px; font-weight: 600; }
+.pctl .v { font-family: var(--font-data); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.pctl .s { font-size: 11px; color: var(--muted); line-height: 1.25; }
+.pctl > div.hl { background: var(--loss-soft); }
+
+/* Loss exceedance curve */
+.chart { margin: 0; }
+.chart-cap { margin: 0 0 8px; font-size: 13px; color: var(--muted); max-width: 60ch; }
+.lec-box { width: 100%; min-width: 0; }
+.lec { display: block; max-width: 100%; touch-action: pan-y; overflow: visible; }
+.lec .grid { stroke: var(--rule); stroke-width: 1; }
+.lec .grid-minor { stroke: var(--rule); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.7; }
+.lec .axis { stroke: var(--muted); stroke-width: 1; }
+.lec .tick { fill: var(--muted); font-family: var(--font-data); font-size: 11px; }
+.lec .axis-title { fill: var(--muted); font-size: 11.5px; font-family: var(--font-body); }
+.lec .curve { fill: none; stroke: var(--loss); stroke-width: 2; stroke-linejoin: round; }
+.lec .curve-area { fill: var(--loss-soft); opacity: 0.85; }
+.lec .mark-line { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.55; }
+.lec .mark-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.lec .mark-text { fill: var(--ink); font-size: 12px; font-weight: 600; font-family: var(--font-body); }
+.lec .hover-line { stroke: var(--accent); stroke-width: 1; }
+.lec .hover-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.lec .hover-bg { fill: var(--surface); stroke: var(--rule); }
+.lec .hover-text { fill: var(--ink); font-size: 12px; font-family: var(--font-body); font-weight: 600; }
+.lec .hover-sub { fill: var(--muted); font-weight: 400; }
+.lec .hit { fill: transparent; cursor: crosshair; }
+.lec .lec-empty { fill: var(--muted); font-size: 13px; }
+
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: 74px minmax(0, 1fr) 46px; align-items: center; gap: 8px; font-size: 13px; }
+.bar-k { color: var(--muted); }
+.bar-track { height: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--rule); }
+.bar-fill { display: block; height: 100%; background: var(--accent); }
+.bar-v { font-family: var(--font-data); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.split-bar { display: flex; height: 12px; border-radius: 2px; overflow: hidden; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--rule); }
+.split-bar span { display: block; height: 100%; }
+.sp-p { background: var(--accent); }
+.sp-s { background: var(--loss); }
+.split-legend { margin: 10px 0 0; display: grid; gap: 4px; font-size: 13px; }
+.split-legend div { display: flex; justify-content: space-between; gap: 12px; }
+.split-legend dt { display: flex; align-items: center; gap: 7px; }
+.split-legend dd { margin: 0; font-family: var(--font-data); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.small { font-size: 13px; }
+
+details.settings { border-top: 1px solid var(--rule); padding-top: 14px; }
+.settings-body { display: grid; gap: 16px; margin-top: 12px; }
+.setting { display: grid; gap: 6px; }
+.setting-k { font-size: 13.5px; font-weight: 600; }
+.setting-help { margin: 0; font-size: 13px; color: var(--muted); max-width: 62ch; }
+.seed-input { max-width: 120px; font-family: var(--font-data); }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+button.primary:hover { filter: brightness(1.08); }
+button.confirm { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:disabled:hover { border-color: var(--rule); }
+.action-msg { font-size: 13px; color: var(--muted); }
+#copy-fallback { font-family: var(--font-data); font-size: 12px; min-height: 160px; }
+
+/* Scenario library bar */
+.libbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+.lib-pick { display: grid; gap: 4px; flex: 1 1 300px; max-width: 480px; min-width: 0; }
+.lib-k { font-size: 12px; color: var(--muted); }
+#lib-select { font-weight: 500; font-size: 15px; }
+.lib-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.lib-status {
+  margin: 0;
+  flex: 1 1 240px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lib-status::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.lib-status.info::before { background: var(--muted); }
+.lib-status.err { color: var(--error); }
+.lib-status.err::before { background: var(--error); }
+
+/* Scenario register */
+.register { margin-top: 24px; }
+.reg-scroll { overflow-x: auto; margin-top: 14px; }
+table.reg { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+table.reg th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+table.reg td { padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+table.reg .num { text-align: right; font-family: var(--font-data); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.reg tbody tr:hover td { background: var(--surface-2); }
+table.reg tbody tr.current td { background: var(--accent-soft); }
+table.reg tfoot td { font-weight: 600; border-bottom: 0; }
+.linkish {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.linkish:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.reg-sub { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.reg-note { margin: 12px 0 0; font-size: 13px; color: var(--muted); max-width: 72ch; }
+.reg-empty { margin: 12px 0 0; padding: 16px; border: 1px dashed var(--rule); border-radius: 6px; color: var(--muted); font-size: 14px; }
+
+/* Notes */
+.notes { margin-top: 24px; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 32px; }
+.notes h3 { margin: 0 0 8px; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
+.notes ol, .notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; max-width: 64ch; }
+.sources { font-size: 13.5px; }
+
+/* Phone summary bar */
+.mbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 10px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+}
+.mbar > div { display: grid; min-width: 0; }
+.mbar-k { font-size: 11px; color: var(--muted); }
+.mbar-v { font-family: var(--font-data); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mbar a { margin-left: auto; font-size: 14px; font-weight: 500; white-space: nowrap; }
+@media (min-width: 980px) { .mbar { display: none; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Cyber risk quantification · FAIR model</p>
+      <h1>FAIR Risk Calculator</h1>
+      <p class="lede">Pick a scenario or start a new one, give each factor as a range, and watch the annual loss exposure recalculate as you type. Your changes save automatically.</p>
+    </div>
+    <div class="runmeta" id="runmeta"></div>
+  </header>
+
+  <section class="libbar" aria-label="Scenario library">
+    <div class="lib-pick">
+      <label class="lib-k" for="lib-select">Scenario</label>
+      <select id="lib-select"></select>
+    </div>
+    <div class="lib-actions">
+      <button type="button" id="lib-new">New scenario</button>
+      <button type="button" id="lib-dup">Duplicate</button>
+      <button type="button" id="lib-del">Delete</button>
+    </div>
+    <div class="lib-actions" id="lib-file" hidden>
+      <button type="button" id="lib-export">Export</button>
+      <button type="button" id="lib-import">Import</button>
+      <input type="file" id="lib-import-file" accept=".json,application/json" hidden>
+    </div>
+    <p class="lib-status" id="lib-status" aria-live="polite"></p>
+  </section>
+
+  <main class="layout">
+    <section class="inputs" aria-label="Inputs">
+
+      <section class="panel" aria-labelledby="scope-title">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h2 id="scope-title">Scope the scenario</h2>
+          </div>
+          <span class="chip" id="scope-chip"></span>
+        </div>
+        <p class="panel-def">One asset, one threat community, one effect. Numbers only mean something once the loss event is pinned down.</p>
+        <div class="scope-grid">
+          <label class="field"><span>Scenario name</span><input type="text" id="sc-name" autocomplete="off"></label>
+          <label class="field"><span>Effect</span>
+            <select id="sc-effect">
+              <option value="Confidentiality">Confidentiality (data exposed)</option>
+              <option value="Integrity">Integrity (data or systems altered)</option>
+              <option value="Availability">Availability (service disrupted)</option>
+            </select>
+          </label>
+          <label class="field"><span>Asset at risk</span><input type="text" id="sc-asset" autocomplete="off"></label>
+          <label class="field"><span>Threat community</span><input type="text" id="sc-threat" autocomplete="off"></label>
+          <label class="field span2"><span>Loss event</span><textarea id="sc-event" rows="2"></textarea></label>
+          <label class="field span2"><span>Assumptions and exclusions</span><textarea id="sc-assume" rows="2"></textarea></label>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="freq-title">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Step 2</p>
+            <h2 id="freq-title">Loss event frequency</h2>
+          </div>
+        </div>
+        <p class="panel-def">How often the loss event is likely to happen in a year.</p>
+        <div class="seg freq-mode" role="radiogroup" aria-label="How to estimate loss event frequency">
+          <input type="radio" name="freqMode" id="fm-derive" value="derive"><label for="fm-derive">Threat events × vulnerability</label>
+          <input type="radio" name="freqMode" id="fm-direct" value="direct"><label for="fm-direct">Estimate directly</label>
+        </div>
+        <div class="factor-block" id="derive-block">
+          <div data-factor="tef"></div>
+          <div data-factor="vuln-block"></div>
+        </div>
+        <div class="factor-block" id="direct-block">
+          <div data-factor="lef"></div>
+        </div>
+        <div class="readout" id="freq-readout" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="mag-title">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Step 3</p>
+            <h2 id="mag-title">Loss magnitude</h2>
+          </div>
+        </div>
+        <p class="panel-def">What each loss event costs. Primary loss always happens; secondary loss only when outside parties react.</p>
+        <div class="factor-block">
+          <div data-factor="pl"></div>
+          <div data-factor="slef"></div>
+          <div data-factor="sl"></div>
+        </div>
+        <div class="readout" id="mag-readout"></div>
+        <details class="more">
+          <summary>Which costs go where</summary>
+          <div class="table-scroll">
+            <table class="forms">
+              <thead><tr><th>Form of loss</th><th>Usually</th><th>Examples</th></tr></thead>
+              <tbody>
+                <tr><td>Productivity</td><td><span class="tag p">Primary</span></td><td>Revenue or output lost while operations are down</td></tr>
+                <tr><td>Response</td><td><span class="tag p">Primary</span> <span class="tag s">Secondary</span></td><td>Incident handling, forensics, legal advice, customer notification</td></tr>
+                <tr><td>Replacement</td><td><span class="tag p">Primary</span></td><td>Repairing or replacing systems and equipment</td></tr>
+                <tr><td>Fines and judgements</td><td><span class="tag s">Secondary</span></td><td>Regulator fines, lawsuits, contractual penalties</td></tr>
+                <tr><td>Competitive advantage</td><td><span class="tag s">Secondary</span></td><td>Trade secrets or IP used by competitors</td></tr>
+                <tr><td>Reputation</td><td><span class="tag s">Secondary</span></td><td>Lost customers, harder sales, higher cost of capital</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <section class="panel" aria-labelledby="cal-title">
+        <p class="eyebrow">Reference</p>
+        <h2 id="cal-title">Estimating good ranges</h2>
+        <ul class="tips" style="margin-top:10px">
+          <li>Start with a range so wide it is obviously true, then pull each end in until you would bet you are about 90% likely to be right.</li>
+          <li>Begin with what you do know: incident tickets, audit findings, insurance claims, published breach reports.</li>
+          <li>Break hard numbers into parts. Notification cost, for example, is records affected × cost per record.</li>
+          <li>Write the reasoning behind each range in the scope, so you can defend or revise it later.</li>
+          <li>Ask the people closest to the data: security operations, finance, legal.</li>
+          <li>A range that is right beats a single number that only looks precise.</li>
+        </ul>
+      </section>
+    </section>
+
+    <section class="results" id="results" aria-labelledby="res-title">
+      <div class="res-head">
+        <div>
+          <p class="eyebrow">Results · annual loss exposure</p>
+          <h2 id="res-title">Untitled scenario</h2>
+          <p class="res-sub" id="res-sub"></p>
+        </div>
+        <span class="chip neutral" id="status-chip" hidden></span>
+      </div>
+
+      <div class="res-body">
+        <div class="tiles" id="tiles">
+          <div class="tile"><span class="k">Chance of at least one loss event in a year</span><span class="v" id="t-any">–</span><span class="s" id="t-any-s"></span></div>
+          <div class="tile"><span class="k">Expected annual loss</span><span class="v" id="t-mean">–</span><span class="s" id="t-mean-s"></span></div>
+          <div class="tile"><span class="k">1-in-10-year loss (P90)</span><span class="v" id="t-p90">–</span><span class="s" id="t-p90-s"></span></div>
+        </div>
+        <p class="sr-only" aria-live="polite" id="live"></p>
+
+        <div>
+          <p class="block-title">Annual loss by percentile <span>· CHF</span></p>
+          <div class="pctl" id="pctl"></div>
+        </div>
+
+        <figure class="chart">
+          <p class="block-title">Loss exceedance curve</p>
+          <p class="chart-cap">Chance that the year's total loss is higher than a given amount. Hover or drag across the chart to read values.</p>
+          <div class="lec-box" id="lec-box"><svg class="lec" id="lec" role="img" aria-label="Loss exceedance curve"></svg></div>
+        </figure>
+
+        <div class="duo">
+          <div>
+            <p class="block-title">Loss events per simulated year</p>
+            <div class="bars" id="events"></div>
+          </div>
+          <div>
+            <p class="block-title">Where the expected loss comes from</p>
+            <div id="split"></div>
+          </div>
+        </div>
+      </div>
+
+      <details class="settings" id="settings">
+        <summary>Model settings</summary>
+        <div class="settings-body">
+          <div class="setting">
+            <span class="setting-k" id="method-lbl">Method</span>
+            <div class="seg" role="radiogroup" aria-labelledby="method-lbl">
+              <input type="radio" name="method" id="mt-events" value="events"><label for="mt-events">Count loss events</label>
+              <input type="radio" name="method" id="mt-average" value="average"><label for="mt-average">Average (LEF × loss)</label>
+            </div>
+            <p class="setting-help">Counting events draws how many loss events happen in each simulated year, so quiet years show up as zero loss. The average method multiplies frequency by loss every year, the way simpler FAIR tools do. Both give the same expected loss; they differ in the tail.</p>
+          </div>
+          <div class="setting">
+            <label class="setting-k" for="seed">Random seed</label>
+            <input type="text" inputmode="numeric" id="seed" class="seed-input" autocomplete="off">
+            <p class="factor-err" id="seed-err" hidden></p>
+            <p class="setting-help">The same seed replays the same random draws, so results only move when your inputs do. Try another seed to see how much comes from sampling noise alone.</p>
+          </div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="button" class="primary" id="copy">Copy summary</button>
+        <span class="action-msg" id="action-msg" aria-live="polite"></span>
+      </div>
+      <textarea id="copy-fallback" readonly hidden aria-label="Summary text to copy"></textarea>
+    </section>
+  </main>
+
+  <section class="panel register" aria-labelledby="reg-title">
+    <p class="eyebrow">Your scenarios</p>
+    <h2 id="reg-title">Scenario register</h2>
+    <p class="panel-def" style="margin:6px 0 0">Every saved scenario, ranked by expected annual loss. Open one to keep working on it.</p>
+    <div class="reg-scroll" id="reg-wrap" hidden>
+      <table class="reg">
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th class="num">Chance of loss event</th>
+            <th class="num">Expected annual loss</th>
+            <th class="num">1 in 10 years</th>
+            <th class="num">1 in 100 years</th>
+            <th class="num">Last edited</th>
+          </tr>
+        </thead>
+        <tbody id="reg-body"></tbody>
+        <tfoot id="reg-foot"></tfoot>
+      </table>
+    </div>
+    <p class="reg-empty" id="reg-empty">No saved scenarios yet. Pick an example and change anything, or start a new scenario. It saves as soon as you edit it.</p>
+    <p class="reg-note" id="reg-note"></p>
+  </section>
+
+  <section class="panel notes" aria-labelledby="notes-title">
+    <p class="eyebrow">Model notes</p>
+    <h2 id="notes-title">How the numbers are made</h2>
+    <div class="notes-grid" style="margin-top:14px">
+      <div>
+        <h3>Each simulated year</h3>
+        <ol>
+          <li>Every factor is drawn from its range using a PERT distribution, which peaks at the most likely value and tapers towards min and max.</li>
+          <li>Loss event frequency is threat event frequency × vulnerability, or your direct estimate.</li>
+          <li>The number of loss events that year is drawn from a Poisson distribution with that frequency as its average, so many years have none.</li>
+          <li>Each event gets its own primary loss. With a probability equal to that year's secondary loss event frequency, it also triggers a secondary loss.</li>
+          <li>The year's total is the sum. 10,000 years give the distribution behind every figure on the page.</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Assumptions and limits</h3>
+        <ul>
+          <li>Factors are independent of one another, and loss events arrive independently. Clustered or linked attacks are not modelled.</li>
+          <li>In capability vs resistance mode, vulnerability is the share of 20,000 paired draws where capability beats resistance, then held fixed.</li>
+          <li>Years with more than 200 events use a normal approximation for their total loss.</li>
+          <li>For a rare scenario like the example, the expected loss moves by about ±3% between seeds. Read results to two significant figures.</li>
+          <li>Not included yet: comparing controls, losses broken out by the six forms, contact frequency and probability of action.</li>
+        </ul>
+      </div>
+      <div class="sources">
+        <h3>Sources</h3>
+        <ul>
+          <li><a href="https://www.fairinstitute.org/hubfs/Standards%20Artifacts/Factor%20Analysis%20of%20Information%20Risk%20(FAIR)%20Standard%20v3.0%20(January%202025).pdf" target="_blank" rel="noopener">FAIR Standard v3.0 (FAIR Institute, 2025)</a></li>
+          <li><a href="https://www.fairinstitute.org/blog/primary-vs.-secondary-loss-in-fair-analysis-whats-the-difference-and-why-it-matters" target="_blank" rel="noopener">Primary vs. secondary loss in FAIR analysis</a></li>
+          <li><a href="https://www.fairinstitute.org/blog/fair-risk-basics-what-is-loss-magnitude" target="_blank" rel="noopener">FAIR risk basics: loss magnitude</a></li>
+          <li><a href="https://github.com/Hive-Systems/pyfair" target="_blank" rel="noopener">pyfair, an open-source FAIR Monte Carlo library</a></li>
+        </ul>
+        <p class="muted small" style="margin-top:10px">Based on the FAIR model published by the FAIR Institute. Personal learning tool; not affiliated with or endorsed by the FAIR Institute.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="mbar" id="mbar">
+  <div><span class="mbar-k">Expected annual loss</span><span class="mbar-v" id="mb-mean">–</span></div>
+  <div><span class="mbar-k">Chance of a loss event</span><span class="mbar-v" id="mb-any">–</span></div>
+  <a href="#results">See results</a>
+</div>
+
+<script>
+// FAIR Monte Carlo engine: pure functions, no DOM access.
+const FAIR = (() => {
+  // Deterministic hash so every (seed, year, variable) gets its own random stream.
+  // Changing one input then leaves the draws for every other variable untouched.
+  function hash32(a, b, c) {
+    let h = Math.imul((a ^ 0x9e3779b9) >>> 0, 0x85ebca6b);
+    h ^= h >>> 13;
+    h = Math.imul(h ^ b, 0xc2b2ae35);
+    h ^= h >>> 16;
+    h = Math.imul(h ^ c, 0x27d4eb2f);
+    h ^= h >>> 15;
+    return h >>> 0;
+  }
+
+  // mulberry32 PRNG
+  function rng(seed) {
+    let t = seed >>> 0;
+    return function () {
+      t = (t + 0x6d2b79f5) >>> 0;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function normal(u) {
+    let a = u();
+    if (a < 1e-12) a = 1e-12;
+    return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u());
+  }
+
+  // Marsaglia–Tsang gamma sampler, valid for shape k >= 1 (PERT shapes are always 1–5)
+  function gamma(k, u) {
+    const d = k - 1 / 3;
+    const c = 1 / Math.sqrt(9 * d);
+    for (;;) {
+      const x = normal(u);
+      let v = 1 + c * x;
+      if (v <= 0) continue;
+      v = v * v * v;
+      const w = u();
+      if (w < 1 - 0.0331 * x * x * x * x) return d * v;
+      if (Math.log(w) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;
+    }
+  }
+
+  function pertShape(r) {
+    const span = r[2] - r[0];
+    return {
+      a: 1 + (4 * (r[1] - r[0])) / span,
+      b: 1 + (4 * (r[2] - r[1])) / span,
+    };
+  }
+
+  // Draw from a PERT(min, mode, max) distribution
+  function pert(r, u) {
+    const span = r[2] - r[0];
+    if (span <= 0) return r[0];
+    const s = pertShape(r);
+    const x = gamma(s.a, u);
+    const y = gamma(s.b, u);
+    return r[0] + (span * x) / (x + y);
+  }
+
+  function pertMean(r) {
+    return (r[0] + 4 * r[1] + r[2]) / 6;
+  }
+
+  function pertVar(r) {
+    const m = pertMean(r);
+    return ((m - r[0]) * (r[2] - m)) / 7;
+  }
+
+  function poisson(lambda, u) {
+    if (lambda <= 0) return 0;
+    if (lambda < 30) {
+      const L = Math.exp(-lambda);
+      let k = 0;
+      let p = 1;
+      do {
+        k++;
+        p *= u();
+      } while (p > L);
+      return k - 1;
+    }
+    return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * normal(u)));
+  }
+
+  // Share of paired draws where threat capability beats resistance strength
+  function derivedVulnerability(tcap, rs, seed) {
+    const u = rng(hash32(seed, 0x5eed, 99));
+    const K = 20000;
+    let wins = 0;
+    for (let i = 0; i < K; i++) if (pert(tcap, u) > pert(rs, u)) wins++;
+    return wins / K;
+  }
+
+  const STREAM = { TEF: 1, VUL: 2, LEF: 3, N: 4, PL: 5, SLEF: 6, SB: 7, SL: 8 };
+  const CLT_THRESHOLD = 200;
+
+  // First index whose value is greater than x (sorted ascending)
+  function upperBound(sorted, x) {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (sorted[mid] <= x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /**
+   * params:
+   *  n, seed, method ('events' | 'average'),
+   *  freqMode ('derive' | 'direct'), vulnMode ('direct' | 'tcaprs'),
+   *  tef, vuln (fractions), tcap, rs (0–100), lef, pl, slef (fraction), sl  — each [min, mostLikely, max]
+   */
+  function simulate(p) {
+    const n = p.n || 10000;
+    const seed = p.seed >>> 0;
+    const annual = new Float64Array(n);
+    let primarySum = 0;
+    let secondarySum = 0;
+    let lambdaSum = 0;
+    let anyEvent = 0;
+    const eventCounts = [0, 0, 0, 0];
+
+    const derive = p.freqMode !== 'direct';
+    const vulnDerived =
+      derive && p.vulnMode === 'tcaprs' ? derivedVulnerability(p.tcap, p.rs, seed) : null;
+
+    const plM = pertMean(p.pl);
+    const plV = pertVar(p.pl);
+    const slM = pertMean(p.sl);
+    const slV = pertVar(p.sl);
+
+    for (let i = 0; i < n; i++) {
+      const s = (k) => rng(hash32(seed, i, k));
+
+      let lambda;
+      if (!derive) {
+        lambda = pert(p.lef, s(STREAM.LEF));
+      } else {
+        const tef = pert(p.tef, s(STREAM.TEF));
+        const v = vulnDerived !== null ? vulnDerived : pert(p.vuln, s(STREAM.VUL));
+        lambda = tef * v;
+      }
+      lambdaSum += lambda;
+
+      const slef = pert(p.slef, s(STREAM.SLEF));
+      let prim = 0;
+      let sec = 0;
+
+      if (p.method === 'average') {
+        prim = lambda * pert(p.pl, s(STREAM.PL));
+        sec = lambda * slef * pert(p.sl, s(STREAM.SL));
+        anyEvent += 1 - Math.exp(-lambda);
+      } else {
+        const events = poisson(lambda, s(STREAM.N));
+        eventCounts[Math.min(events, 3)]++;
+        if (events > 0) anyEvent++;
+        if (events <= CLT_THRESHOLD) {
+          const up = s(STREAM.PL);
+          const ub = s(STREAM.SB);
+          const us = s(STREAM.SL);
+          for (let j = 0; j < events; j++) {
+            prim += pert(p.pl, up);
+            if (ub() < slef) sec += pert(p.sl, us);
+          }
+        } else {
+          // Central limit approximation for very busy years
+          prim = Math.max(0, events * plM + Math.sqrt(events * plV) * normal(s(STREAM.PL)));
+          const m = slef * slM;
+          const v = Math.max(0, slef * (slV + slM * slM) - m * m);
+          sec = Math.max(0, events * m + Math.sqrt(events * v) * normal(s(STREAM.SL)));
+        }
+      }
+
+      primarySum += prim;
+      secondarySum += sec;
+      annual[i] = prim + sec;
+    }
+
+    const sorted = annual.slice().sort();
+    const q = (x) => sorted[Math.min(n - 1, Math.max(0, Math.ceil(x * n) - 1))];
+
+    return {
+      n,
+      method: p.method,
+      sorted,
+      mean: (primarySum + secondarySum) / n,
+      primaryMean: primarySum / n,
+      secondaryMean: secondarySum / n,
+      pAny: anyEvent / n,
+      meanLambda: lambdaSum / n,
+      vulnDerived,
+      eventDist: p.method === 'average' ? null : eventCounts.map((c) => c / n),
+      pct: { p10: q(0.1), p50: q(0.5), p90: q(0.9), p95: q(0.95), p99: q(0.99), p999: q(0.999) },
+    };
+  }
+
+  function exceedance(sorted, x) {
+    return (sorted.length - upperBound(sorted, x)) / sorted.length;
+  }
+
+  return { simulate, exceedance, upperBound, pertMean, pertVar, pertShape };
+})();
+
+if (typeof module !== 'undefined') module.exports = FAIR;
+
+</script>
+<script>
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const N_YEARS = 10000;
+  // Pages framed by Claude can't start file downloads, so file backup is offered only in the standalone app
+  const INSIDE_CLAUDE = !!(window.claude && typeof window.claude.use === 'function');
+  const WORK_KEY = 'fair-calc-v2:work';
+  const LIB_KEY = 'fair-calc-v2:library';
+  const V1_KEY = 'fair-calc-v1';
+
+  const FACTORS = {
+    tef: { name: 'Threat event frequency', unit: 'attempts per year', kind: 'num',
+      def: 'How often a threat actor acts against the asset in a way that could cause loss, whether or not it succeeds.' },
+    vuln: { name: 'Vulnerability', unit: '% of attempts that succeed', kind: 'pct',
+      def: 'The probability that a threat event becomes a loss event.' },
+    tcap: { name: 'Threat capability', unit: 'percentile, 0–100', kind: 'score', sub: true,
+      def: 'How capable this threat community is compared with attackers in general. 50 is a typical attacker.' },
+    rs: { name: 'Resistance strength', unit: 'percentile, 0–100', kind: 'score', sub: true,
+      def: 'The attacker percentile your controls can hold off. At 70 you stop 70% of attackers.' },
+    lef: { name: 'Loss event frequency', unit: 'loss events per year', kind: 'num',
+      def: 'How often the loss actually happens. Use decimals for rare events: 0.1 means once in ten years.' },
+    pl: { name: 'Primary loss per event', unit: 'CHF', kind: 'chf',
+      def: 'Costs your organisation bears directly: lost productivity, incident response, replacing systems.' },
+    slef: { name: 'Secondary loss event frequency', unit: '% of loss events', kind: 'pct',
+      def: 'The share of loss events where customers, regulators or partners react in a way that costs you money.' },
+    sl: { name: 'Secondary loss per event', unit: 'CHF', kind: 'chf',
+      def: 'What those reactions cost when they happen: fines, legal fees, notification, lost customers.' },
+  };
+  const FACTOR_KEYS = Object.keys(FACTORS);
+
+  // Used for any factor an example doesn't set, so switching modes shows sensible ranges
+  const BASE_V = {
+    tef: ['1', '3', '10'], vuln: ['2', '6', '15'], tcap: ['30', '55', '85'], rs: ['50', '70', '90'],
+    lef: ['0.05', '0.2', '0.6'], pl: ['50k', '150k', '600k'], slef: ['20', '40', '70'], sl: ['100k', '400k', '2.5M'],
+  };
+
+  const EXAMPLES = [
+    { key: 'db-breach', freqMode: 'derive', vulnMode: 'direct',
+      scope: { name: 'Customer database breach', effect: 'Confidentiality', asset: 'CRM database with about 40,000 customer records',
+        threat: 'External cybercriminals, financially motivated', event: 'Criminals copy customer personal data out of the CRM database.',
+        assume: 'Illustrative example values. Excludes insider misuse and breaches at third-party processors.' },
+      v: { tef: ['1', '3', '10'], vuln: ['2', '6', '15'], pl: ['50k', '150k', '600k'], slef: ['20', '40', '70'], sl: ['100k', '400k', '2.5M'] } },
+    { key: 'ransomware', freqMode: 'derive', vulnMode: 'direct',
+      scope: { name: 'Ransomware stops order processing', effect: 'Availability', asset: 'ERP and file servers that run order processing',
+        threat: 'Ransomware groups, financially motivated', event: 'Ransomware encrypts core systems and orders stop until they are restored from backup.',
+        assume: 'Illustrative example values. Primary loss covers downtime, recovery and rebuilding systems. No ransom payment assumed.' },
+      v: { tef: ['2', '5', '15'], vuln: ['1', '3', '10'], pl: ['150k', '500k', '3M'], slef: ['10', '25', '50'], sl: ['50k', '250k', '1.5M'] } },
+    { key: 'invoice-fraud', freqMode: 'derive', vulnMode: 'direct',
+      scope: { name: 'Invoice fraud by email', effect: 'Integrity', asset: 'Supplier payment process in finance',
+        threat: 'Fraudsters impersonating suppliers or executives by email', event: 'Finance pays a fake invoice or changes a supplier’s bank details after a spoofed email.',
+        assume: 'Illustrative example values. Assumes the bank recovers none of the money.' },
+      v: { tef: ['10', '30', '80'], vuln: ['0.3', '1', '3'], pl: ['15k', '60k', '400k'], slef: ['5', '15', '40'], sl: ['10k', '40k', '250k'] } },
+    { key: 'cloud-outage', freqMode: 'direct', vulnMode: 'direct',
+      scope: { name: 'Cloud provider outage', effect: 'Availability', asset: 'Online shop hosted with a single cloud provider',
+        threat: 'Provider infrastructure failure (not malicious)', event: 'The shop is down for several hours because of an outage at the provider.',
+        assume: 'Illustrative example values. Frequency estimated directly from the provider’s status history.' },
+      v: { lef: ['0.5', '1.5', '4'], pl: ['5k', '30k', '200k'], slef: ['5', '15', '40'], sl: ['5k', '25k', '150k'] } },
+    { key: 'insider', freqMode: 'derive', vulnMode: 'tcaprs',
+      scope: { name: 'Departing employee takes client data', effect: 'Confidentiality', asset: 'Client list and pricing in the CRM',
+        threat: 'Departing sales staff acting against the company', event: 'An employee leaving for a competitor exports client data and uses it there.',
+        assume: 'Illustrative example values. Resistance reflects today’s export limits and monitoring.' },
+      v: { tef: ['0.2', '1', '3'], tcap: ['20', '45', '70'], rs: ['30', '50', '75'], pl: ['10k', '40k', '150k'], slef: ['30', '60', '90'], sl: ['50k', '250k', '1.5M'] } },
+  ];
+  const exampleState = (ex) => ({
+    scope: { ...ex.scope },
+    v: { ...BASE_V, ...ex.v },
+    freqMode: ex.freqMode,
+    vulnMode: ex.vulnMode,
+    method: 'events',
+    seed: '7',
+  });
+  const BLANK_STATE = {
+    scope: { name: '', effect: 'Confidentiality', asset: '', threat: '', event: '', assume: '' },
+    v: Object.fromEntries(FACTOR_KEYS.map((k) => [k, ['', '', '']])),
+    freqMode: 'derive',
+    vulnMode: 'direct',
+    method: 'events',
+    seed: '7',
+  };
+
+  const SCOPE_IDS = { name: 'sc-name', effect: 'sc-effect', asset: 'sc-asset', threat: 'sc-threat', event: 'sc-event', assume: 'sc-assume' };
+  const SCOPE_ID_LIST = Object.values(SCOPE_IDS);
+  const PARTS = ['lo', 'ml', 'hi'];
+
+  // ---------- Formatting ----------
+  const grp = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 });
+  const dateFmt = new Intl.DateTimeFormat('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit' });
+  const trimZeros = (s) => (s.includes('.') ? s.replace(/\.?0+$/, '') : s);
+  function chfShort(x) {
+    if (!isFinite(x)) return '–';
+    const a = Math.abs(x);
+    if (a >= 1e9) return trimZeros((x / 1e9).toFixed(a >= 1e10 ? 1 : 2)) + 'B';
+    if (a >= 1e6) return trimZeros((x / 1e6).toFixed(a >= 1e7 ? 1 : 2)) + 'M';
+    if (a >= 1e3) return trimZeros((x / 1e3).toFixed(a >= 1e4 ? 0 : 1)) + 'k';
+    return String(Math.round(x));
+  }
+  const chf = (x) => 'CHF ' + chfShort(x);
+  const chfFull = (x) => 'CHF ' + grp.format(Math.round(x));
+  function pct(p) {
+    if (!isFinite(p) || p <= 0) return '0%';
+    if (p < 0.001) return '<0.1%';
+    if (p < 0.1) return trimZeros((p * 100).toFixed(1)) + '%';
+    if (p > 0.995 && p < 1) return '>99%';
+    return Math.round(p * 100) + '%';
+  }
+  function oneIn(p) {
+    if (p <= 0) return 'none in ' + grp.format(N_YEARS) + ' simulated years';
+    if (p >= 0.95) return 'almost every year';
+    if (p >= 0.5) return 'more years than not';
+    return 'about 1 year in ' + Math.round(1 / p);
+  }
+  function fmtNum(x) {
+    if (x < 10) return trimZeros(x.toFixed(1));
+    return grp.format(Math.round(x));
+  }
+  function fmtLam(x) {
+    if (x <= 0) return '0';
+    if (x < 0.01) return String(+x.toPrecision(2));
+    if (x < 10) return x.toFixed(2);
+    return grp.format(Math.round(x));
+  }
+  function freqText(lam) {
+    if (lam <= 0) return 'No loss events expected.';
+    if (lam < 1) return 'About once every ' + fmtNum(1 / lam) + ' years on average.';
+    return 'About ' + fmtNum(lam) + ' times a year on average.';
+  }
+
+  // ---------- Parsing and validation ----------
+  const MULT = { k: 1e3, m: 1e6, mn: 1e6, mio: 1e6, b: 1e9, bn: 1e9 };
+  function parseNumber(raw, allowSuffix) {
+    let s = String(raw).trim().toLowerCase().replace(/^chf\s*/, '').replace(/%$/, '').trim();
+    if (!s) return { err: 'empty' };
+    s = s.replace(/[\s'’_]/g, '');
+    if (s.includes(',') && !s.includes('.')) {
+      s = /^\d{1,3}(,\d{3})+[a-z]*$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+    const m = s.match(/^(\d*\.?\d+)([a-z]*)$/);
+    if (!m) return { err: 'nan' };
+    let v = parseFloat(m[1]);
+    if (m[2]) {
+      if (!allowSuffix || !(m[2] in MULT)) return { err: 'nan' };
+      v *= MULT[m[2]];
+    }
+    return { value: v };
+  }
+
+  function formatInput(v, kind) {
+    if (kind === 'chf') {
+      if (v >= 1e6 && Math.abs((v / 1e6) * 100 - Math.round((v / 1e6) * 100)) < 1e-6) return trimZeros((v / 1e6).toFixed(2)) + 'M';
+      if (v >= 1e3 && Math.abs((v / 1e3) * 10 - Math.round((v / 1e3) * 10)) < 1e-6) return trimZeros((v / 1e3).toFixed(1)) + 'k';
+      return grp.format(v);
+    }
+    return String(+v.toPrecision(6));
+  }
+
+  function readFactor(key) {
+    const f = FACTORS[key];
+    const els = PARTS.map((p) => $(`#${key}-${p}`));
+    const err = $(`#${key}-err`);
+    if (els.every((el) => !el.value.trim())) {
+      els.forEach((el) => el.setAttribute('aria-invalid', 'false'));
+      err.textContent = '';
+      err.hidden = true;
+      return { ok: false, empty: true, raw: [NaN, NaN, NaN], range: [NaN, NaN, NaN] };
+    }
+    const vals = [];
+    const bad = [];
+    let msg = '';
+    els.forEach((el, i) => {
+      const r = parseNumber(el.value, f.kind === 'chf' || f.kind === 'num');
+      if (r.err) {
+        bad.push(i);
+        if (!msg) {
+          msg = r.err === 'empty' ? 'Fill in all three values.'
+            : f.kind === 'chf' ? 'Enter amounts like 150000, 150k or 2.5M.'
+            : 'Enter a number of 0 or more.';
+        }
+        vals.push(NaN);
+      } else vals.push(r.value);
+    });
+    if (!msg && (f.kind === 'pct' || f.kind === 'score')) {
+      vals.forEach((v, i) => { if (v > 100) bad.push(i); });
+      if (bad.length) msg = 'Use values between 0 and 100.';
+    }
+    if (!msg) {
+      if (vals[0] > vals[1]) { bad.push(0, 1); msg = 'Min can’t be higher than most likely.'; }
+      else if (vals[1] > vals[2]) { bad.push(1, 2); msg = 'Most likely can’t be higher than max.'; }
+    }
+    els.forEach((el, i) => el.setAttribute('aria-invalid', bad.includes(i) ? 'true' : 'false'));
+    err.textContent = msg;
+    err.hidden = !msg;
+    return { ok: !msg, empty: false, raw: vals, range: f.kind === 'pct' ? vals.map((v) => v / 100) : vals };
+  }
+
+  // ---------- Building the factor rows ----------
+  function tripleHTML(key) {
+    const mode = FACTORS[key].kind === 'chf' ? 'text' : 'decimal';
+    const labels = ['Min', 'Most likely', 'Max'];
+    return `<div class="triple-row">
+      <div class="triple" role="group" aria-labelledby="${key}-name">
+        ${PARTS.map((p, i) => `<label class="cell"><span>${labels[i]}</span><input type="text" inputmode="${mode}" id="${key}-${p}" data-key="${key}" autocomplete="off" spellcheck="false"></label>`).join('')}
+      </div>
+      <svg class="spark" id="${key}-spark" viewBox="0 0 120 40" aria-hidden="true"></svg>
+    </div>`;
+  }
+  function factorHTML(key) {
+    const f = FACTORS[key];
+    return `<div class="factor${f.sub ? ' sub' : ''}" id="f-${key}">
+      <div class="factor-head"><span class="factor-name" id="${key}-name">${f.name}</span><span class="unit">${f.unit}</span></div>
+      <p class="factor-def">${f.def}</p>
+      ${tripleHTML(key)}
+      <p class="factor-err" id="${key}-err" hidden></p>
+    </div>`;
+  }
+  function vulnBlockHTML() {
+    return `<div class="factor" id="f-vuln-block">
+      <div class="factor-head">
+        <span class="factor-name" id="vuln-name">Vulnerability</span>
+        <div class="seg seg-sm" role="radiogroup" aria-label="How to estimate vulnerability">
+          <input type="radio" name="vulnMode" id="vm-direct" value="direct"><label for="vm-direct">Enter as %</label>
+          <input type="radio" name="vulnMode" id="vm-tcaprs" value="tcaprs"><label for="vm-tcaprs">Capability vs resistance</label>
+        </div>
+      </div>
+      <p class="factor-def" id="vuln-def"></p>
+      <div id="vuln-direct">
+        <span class="unit">${FACTORS.vuln.unit}</span>
+        ${tripleHTML('vuln')}
+        <p class="factor-err" id="vuln-err" hidden></p>
+      </div>
+      <div id="vuln-tcaprs">
+        ${factorHTML('tcap')}
+        ${factorHTML('rs')}
+        <p class="derived" id="vuln-derived"></p>
+      </div>
+    </div>`;
+  }
+  document.querySelectorAll('[data-factor]').forEach((el) => {
+    const k = el.dataset.factor;
+    el.outerHTML = k === 'vuln-block' ? vulnBlockHTML() : factorHTML(k);
+  });
+
+  // ---------- PERT preview sparklines ----------
+  function drawSpark(key, r) {
+    const svg = $(`#${key}-spark`);
+    if (!svg) return;
+    if (!r.ok) { svg.innerHTML = ''; return; }
+    const [lo, ml, hi] = r.raw;
+    const W = 120, H = 40, pad = 3;
+    if (hi - lo <= 0) {
+      svg.innerHTML = `<line class="spark-base" x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}"/><line class="spark-mode" x1="60" x2="60" y1="${pad}" y2="${H - pad}"/>`;
+      return;
+    }
+    const { a, b } = FAIR.pertShape(r.raw);
+    const N = 48;
+    const ys = [];
+    let max = 0;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const y = Math.pow(t, a - 1) * Math.pow(1 - t, b - 1);
+      ys.push(y);
+      if (y > max) max = y;
+    }
+    const pts = ys.map((y, i) => [pad + ((W - 2 * pad) * i) / N, H - pad - (H - 2 * pad - 2) * (y / max)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const area = `${line} L${W - pad} ${H - pad} L${pad} ${H - pad} Z`;
+    const mx = (pad + ((W - 2 * pad) * (ml - lo)) / (hi - lo)).toFixed(1);
+    svg.innerHTML = `<path class="spark-area" d="${area}"/><path class="spark-line" d="${line}"/><line class="spark-base" x1="${pad}" x2="${W - pad}" y1="${H - pad}" y2="${H - pad}"/><line class="spark-mode" x1="${mx}" x2="${mx}" y1="${H - pad}" y2="${H}"/>`;
+  }
+
+  // ---------- Scenario state ----------
+  let current = { kind: 'example', id: 'db-breach' }; // kind: 'saved' | 'example' | 'blank'
+  let editedAt = 0;
+  let editPending = false;
+  let lastResult = null;
+  let lastInputs = null;
+
+  const radioVal = (name) => (document.querySelector(`input[name="${name}"]:checked`) || {}).value;
+  function setRadio(name, value) {
+    const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (el) el.checked = true;
+  }
+  function scopeVals() {
+    const o = {};
+    for (const k in SCOPE_IDS) o[k] = $('#' + SCOPE_IDS[k]).value.trim();
+    return o;
+  }
+  function snapshotState() {
+    const v = {};
+    for (const k of FACTOR_KEYS) v[k] = PARTS.map((p) => $(`#${k}-${p}`).value);
+    const scope = {};
+    for (const k in SCOPE_IDS) scope[k] = $('#' + SCOPE_IDS[k]).value;
+    return { scope, v, freqMode: radioVal('freqMode'), vulnMode: radioVal('vulnMode'), method: radioVal('method'), seed: $('#seed').value };
+  }
+  function applyState(st) {
+    const scope = st.scope || {};
+    for (const k in SCOPE_IDS) $('#' + SCOPE_IDS[k]).value = scope[k] != null ? scope[k] : (k === 'effect' ? 'Confidentiality' : '');
+    for (const k of FACTOR_KEYS) {
+      const vals = (st.v && st.v[k]) || ['', '', ''];
+      PARTS.forEach((p, i) => { $(`#${k}-${p}`).value = vals[i] != null ? vals[i] : ''; });
+      $(`#${k}-err`).hidden = true;
+    }
+    setRadio('freqMode', st.freqMode || 'derive');
+    setRadio('vulnMode', st.vulnMode || 'direct');
+    setRadio('method', st.method || 'events');
+    $('#seed').value = st.seed != null ? st.seed : '7';
+    applyModes();
+  }
+
+  function applyModes() {
+    const derive = radioVal('freqMode') !== 'direct';
+    const tcaprs = radioVal('vulnMode') === 'tcaprs';
+    $('#derive-block').hidden = !derive;
+    $('#direct-block').hidden = derive;
+    $('#vuln-direct').hidden = tcaprs;
+    $('#vuln-tcaprs').hidden = !tcaprs;
+    $('#vuln-def').textContent = tcaprs
+      ? 'Estimated from how capable attackers are compared with how well your controls hold up. Vulnerability is the chance capability wins.'
+      : FACTORS.vuln.def;
+  }
+
+  function activeKeys() {
+    const keys = [];
+    if (radioVal('freqMode') !== 'direct') {
+      keys.push('tef');
+      if (radioVal('vulnMode') === 'tcaprs') keys.push('tcap', 'rs');
+      else keys.push('vuln');
+    } else keys.push('lef');
+    keys.push('pl', 'slef', 'sl');
+    return keys;
+  }
+
+  function readSeed() {
+    const s = $('#seed').value.trim();
+    const ok = /^\d{1,9}$/.test(s);
+    $('#seed-err').textContent = ok ? '' : 'Use a whole number, e.g. 7.';
+    $('#seed-err').hidden = ok;
+    $('#seed').setAttribute('aria-invalid', ok ? 'false' : 'true');
+    return ok ? parseInt(s, 10) : null;
+  }
+
+  function collect() {
+    const read = {};
+    for (const k of FACTOR_KEYS) {
+      read[k] = readFactor(k);
+      drawSpark(k, read[k]);
+    }
+    const keys = activeKeys();
+    let bad = keys.filter((k) => !read[k].ok && !read[k].empty).length;
+    const missing = keys.filter((k) => read[k].empty).length;
+    const seed = readSeed();
+    if (seed === null) bad++;
+    const params = {
+      n: N_YEARS,
+      seed,
+      method: radioVal('method') || 'events',
+      freqMode: radioVal('freqMode') || 'derive',
+      vulnMode: radioVal('vulnMode') || 'direct',
+    };
+    for (const k of FACTOR_KEYS) params[k] = read[k].range;
+    return { ok: bad === 0 && missing === 0, bad, missing, params, read, keys };
+  }
+
+  // ---------- Scope ----------
+  function renderScope() {
+    const sc = scopeVals();
+    const missing = [];
+    if (!sc.asset) missing.push('asset');
+    if (!sc.threat) missing.push('threat');
+    if (!sc.event) missing.push('loss event');
+    const chip = $('#scope-chip');
+    if (missing.length) {
+      chip.className = 'chip warn';
+      chip.textContent = 'Missing ' + missing.join(', ');
+    } else {
+      chip.className = 'chip';
+      chip.textContent = 'Scope defined';
+    }
+    $('#res-title').textContent = sc.name || 'Untitled scenario';
+    const bits = [sc.effect];
+    if (sc.asset) bits.push(sc.asset);
+    $('#res-sub').textContent = bits.join(' · ');
+  }
+
+  // ---------- Readouts ----------
+  function renderReadouts(c, r) {
+    const fr = $('#freq-readout');
+    if (r) {
+      fr.innerHTML = `<span>Expected loss event frequency <b>${fmtLam(r.meanLambda)}</b> per year</span><span class="sub">${freqText(r.meanLambda)}</span>`;
+    } else {
+      fr.innerHTML = '<span class="sub">Complete the inputs above to see the expected frequency.</span>';
+    }
+    const vd = $('#vuln-derived');
+    if (r && r.vulnDerived !== null) {
+      vd.innerHTML = `Derived vulnerability <b>${pct(r.vulnDerived)}</b> of attempts succeed.`;
+    } else if (!r) {
+      vd.textContent = '';
+    }
+
+    const mr = $('#mag-readout');
+    const m = FAIR.pertMean;
+    if (c.read.pl.ok && c.read.slef.ok && c.read.sl.ok) {
+      const pl = m(c.read.pl.range);
+      const slef = m(c.read.slef.range);
+      const sl = m(c.read.sl.range);
+      mr.innerHTML = `<span>Expected loss per event <b>${chf(pl + slef * sl)}</b></span><span class="sub">Primary ${chf(pl)} + secondary ${chf(slef * sl)} (${chf(sl)} in ${pct(slef)} of events)</span>`;
+    } else {
+      mr.innerHTML = '<span class="sub">Complete the inputs above to see the expected loss per event.</span>';
+    }
+  }
+
+  // ---------- Results ----------
+  const PCTL = [
+    ['P10', 'p10', 'low year'],
+    ['Median', 'p50', 'typical year'],
+    ['P90', 'p90', '1 in 10 yrs'],
+    ['P95', 'p95', '1 in 20 yrs'],
+    ['P99', 'p99', '1 in 100 yrs'],
+  ];
+
+  function renderResults(r) {
+    $('#t-any').textContent = pct(r.pAny);
+    $('#t-any-s').textContent = oneIn(r.pAny);
+    $('#t-mean').textContent = chf(r.mean);
+    $('#t-mean-s').textContent = chfFull(r.mean) + ' per year';
+    $('#t-p90').textContent = chf(r.pct.p90);
+    $('#t-p90-s').textContent = r.pct.p90 > 0 ? 'exceeded 1 year in 10' : 'at least 9 years in 10 have no loss';
+
+    $('#pctl').innerHTML = PCTL.map(([k, key, s]) =>
+      `<div${key === 'p90' ? ' class="hl"' : ''}><span class="k">${k}</span><span class="v">${chfShort(r.pct[key])}</span><span class="s">${s}</span></div>`
+    ).join('');
+
+    const ev = $('#events');
+    if (r.eventDist) {
+      ev.innerHTML = ['None', '1 event', '2 events', '3 or more'].map((lab, i) =>
+        `<div class="bar-row"><span class="bar-k">${lab}</span><span class="bar-track"><span class="bar-fill" style="width:${(r.eventDist[i] * 100).toFixed(2)}%"></span></span><span class="bar-v">${pct(r.eventDist[i])}</span></div>`
+      ).join('');
+    } else {
+      ev.innerHTML = '<p class="muted small" style="margin:0">The average method doesn’t count individual events. Switch to “Count loss events” in model settings to see this.</p>';
+    }
+
+    const tot = r.primaryMean + r.secondaryMean;
+    const ps = tot > 0 ? r.primaryMean / tot : 0;
+    $('#split').innerHTML = `<div class="split-bar" role="img" aria-label="Primary ${pct(ps)}, secondary ${pct(tot > 0 ? 1 - ps : 0)}">
+        <span class="sp-p" style="width:${(ps * 100).toFixed(2)}%"></span><span class="sp-s" style="width:${(tot > 0 ? (1 - ps) * 100 : 0).toFixed(2)}%"></span>
+      </div>
+      <dl class="split-legend">
+        <div><dt><i class="sw sp-p"></i>Primary</dt><dd>${chf(r.primaryMean)} · ${pct(ps)}</dd></div>
+        <div><dt><i class="sw sp-s"></i>Secondary</dt><dd>${chf(r.secondaryMean)} · ${pct(tot > 0 ? 1 - ps : 0)}</dd></div>
+      </dl>`;
+
+    $('#mb-mean').textContent = chf(r.mean);
+    $('#mb-any').textContent = pct(r.pAny);
+    $('#live').textContent = `Expected annual loss ${chf(r.mean)}. Chance of a loss event ${pct(r.pAny)}. One-in-ten-year loss ${chf(r.pct.p90)}.`;
+    drawLEC(r);
+  }
+
+  function renderEmptyResults() {
+    ['#t-any', '#t-mean', '#t-p90'].forEach((s) => { $(s).textContent = '–'; });
+    ['#t-any-s', '#t-mean-s', '#t-p90-s'].forEach((s) => { $(s).textContent = ''; });
+    $('#pctl').innerHTML = PCTL.map(([k, , s]) => `<div><span class="k">${k}</span><span class="v">–</span><span class="s">${s}</span></div>`).join('');
+    $('#events').innerHTML = '';
+    $('#split').innerHTML = '';
+    $('#mb-mean').textContent = '–';
+    $('#mb-any').textContent = '–';
+    $('#runmeta').textContent = '';
+    lecMessage('Results appear once every factor has a range.');
+  }
+
+  function setStatus(c) {
+    const chip = $('#status-chip');
+    const res = $('#results');
+    res.classList.toggle('stale', !c.ok);
+    if (c.bad > 0) {
+      chip.hidden = false;
+      chip.className = 'chip warn';
+      chip.textContent = `Fix ${c.bad} ${c.bad === 1 ? 'input' : 'inputs'} to update`;
+    } else if (c.missing > 0) {
+      chip.hidden = false;
+      chip.className = 'chip warn';
+      chip.textContent = `Fill in ${c.missing} more ${c.missing === 1 ? 'factor' : 'factors'}`;
+    } else if (current.kind === 'example') {
+      chip.hidden = false;
+      chip.className = 'chip neutral';
+      chip.textContent = 'Example values';
+    } else {
+      chip.hidden = true;
+    }
+  }
+
+  // ---------- Loss exceedance curve ----------
+  let lec = null;
+  function niceUp(v) {
+    if (v <= 0) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1, 2, 5, 10]) if (m * p >= v * (1 - 1e-9)) return m * p;
+    return 10 * p;
+  }
+  function lecSize() {
+    const W = Math.max(260, Math.floor($('#lec-box').clientWidth));
+    const H = Math.round(Math.min(290, Math.max(230, W * 0.44)));
+    const svg = $('#lec');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+    return { W, H, svg };
+  }
+  function lecMessage(text) {
+    const { W, H, svg } = lecSize();
+    svg.innerHTML = `<text class="lec-empty" x="${W / 2}" y="${H / 2}" text-anchor="middle"></text>`;
+    svg.querySelector('text').textContent = text;
+    svg.setAttribute('aria-label', 'Loss exceedance curve. ' + text);
+    lec = null;
+  }
+
+  function drawLEC(r) {
+    const { W, H, svg } = lecSize();
+    const M = { l: 44, r: 14, t: 14, b: 40 };
+    const iw = W - M.l - M.r;
+    const ih = H - M.t - M.b;
+    const s = r.sorted;
+    const n = s.length;
+    const first = FAIR.upperBound(s, 0);
+    const pos = n - first;
+    if (pos === 0) {
+      lecMessage(`No losses in ${grp.format(n)} simulated years`);
+      return;
+    }
+
+    let xMax = niceUp(s[Math.min(n - 1, Math.ceil(0.999 * n) - 1)] || s[n - 1]);
+    const lowPos = s[first + Math.floor(pos * 0.01)];
+    let xMin = Math.pow(10, Math.floor(Math.log10(Math.max(lowPos, 1))));
+    xMin = Math.max(xMin, Math.pow(10, Math.floor(Math.log10(xMax)) - 5), 100);
+    if (xMin >= xMax) xMin = xMax / 10;
+    const lx0 = Math.log10(xMin);
+    const lx1 = Math.log10(xMax);
+    const X = (v) => M.l + (iw * (Math.log10(Math.max(v, xMin)) - lx0)) / (lx1 - lx0);
+
+    const pTop = FAIR.exceedance(s, xMin);
+    const cand = Math.min(1, Math.max(pTop * 1.08, 0.005));
+    const step = cand <= 0.05 ? 0.01 : cand <= 0.1 ? 0.02 : cand <= 0.25 ? 0.05 : cand <= 0.6 ? 0.1 : 0.2;
+    const yMax = Math.min(1, Math.ceil(cand / step - 1e-9) * step);
+    const Y = (p) => M.t + ih * (1 - Math.min(p, yMax) / yMax);
+
+    let g = '';
+    for (let k = 0; k * step <= yMax + 1e-9; k++) {
+      const v = k * step;
+      const y = Y(v).toFixed(1);
+      g += `<line class="${k === 0 ? 'axis' : 'grid'}" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}"/>`;
+      g += `<text class="tick" x="${M.l - 6}" y="${(+y + 4).toFixed(1)}" text-anchor="end">${Math.round(v * 100)}%</text>`;
+    }
+    const decadeWidth = iw / (lx1 - lx0);
+    const labelMinor = decadeWidth > 140;
+    for (let d = Math.floor(lx0); d <= Math.ceil(lx1); d++) {
+      for (const m of [1, 2, 5]) {
+        const v = m * Math.pow(10, d);
+        if (v < xMin * (1 - 1e-9) || v > xMax * (1 + 1e-9)) continue;
+        const x = X(v).toFixed(1);
+        const major = m === 1;
+        g += `<line class="${major ? 'grid' : 'grid-minor'}" x1="${x}" x2="${x}" y1="${M.t}" y2="${Y(0).toFixed(1)}"/>`;
+        if (major || labelMinor) {
+          g += `<text class="tick" x="${x}" y="${(Y(0) + 16).toFixed(1)}" text-anchor="middle">${chfShort(v)}</text>`;
+        }
+      }
+    }
+    g += `<text class="axis-title" x="${W - M.r}" y="${H - 4}" text-anchor="end">Annual loss, CHF (log scale)</text>`;
+
+    const STEPS = 220;
+    const pts = [];
+    for (let i = 0; i <= STEPS; i++) {
+      const v = Math.pow(10, lx0 + ((lx1 - lx0) * i) / STEPS);
+      pts.push([M.l + (iw * i) / STEPS, Y(FAIR.exceedance(s, v))]);
+    }
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('');
+    g += `<path class="curve-area" d="${line}L${(M.l + iw).toFixed(1)},${Y(0).toFixed(1)}L${M.l},${Y(0).toFixed(1)}Z"/>`;
+    g += `<path class="curve" d="${line}"/>`;
+
+    const p90 = r.pct.p90;
+    if (p90 > 0 && yMax >= 0.1 && p90 >= xMin && p90 <= xMax) {
+      const cx = X(p90);
+      const cy = Y(0.1);
+      g += `<line class="mark-line" x1="${M.l}" x2="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}"/>`;
+      g += `<line class="mark-line" x1="${cx.toFixed(1)}" x2="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" y2="${Y(0).toFixed(1)}"/>`;
+      g += `<circle class="mark-dot" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4"/>`;
+      const right = cx > M.l + iw * 0.6;
+      g += `<text class="mark-text" x="${(right ? cx - 9 : cx + 9).toFixed(1)}" y="${(cy - 8).toFixed(1)}" text-anchor="${right ? 'end' : 'start'}">1 in 10 years: ${chf(p90)}</text>`;
+    }
+
+    g += `<g id="hv" visibility="hidden">
+      <line class="hover-line" id="hv-line" y1="${M.t}" y2="${Y(0).toFixed(1)}"/>
+      <circle class="hover-dot" id="hv-dot" r="4"/>
+      <rect class="hover-bg" id="hv-bg" rx="4"/>
+      <text class="hover-text" id="hv-t1"></text>
+      <text class="hover-text hover-sub" id="hv-t2"></text>
+    </g>`;
+    g += `<rect class="hit" x="${M.l}" y="${M.t}" width="${iw}" height="${ih}"/>`;
+
+    svg.innerHTML = g;
+    svg.setAttribute('aria-label', `Loss exceedance curve. ${pct(r.pAny)} chance of any loss; 1-in-10-year loss ${chf(p90)}; 1-in-100-year loss ${chf(r.pct.p99)}.`);
+    lec = { W, M, iw, lx0, lx1, Y, s };
+  }
+
+  function hoverAt(clientX) {
+    if (!lec) return;
+    const svg = $('#lec');
+    const rect = svg.getBoundingClientRect();
+    const px = ((clientX - rect.left) * lec.W) / rect.width;
+    const { M, iw, lx0, lx1, Y, s } = lec;
+    if (px < M.l || px > M.l + iw) { hideHover(); return; }
+    const v = Math.pow(10, lx0 + ((px - M.l) / iw) * (lx1 - lx0));
+    const p = FAIR.exceedance(s, v);
+    const y = Y(p);
+    $('#hv').setAttribute('visibility', 'visible');
+    const ln = $('#hv-line');
+    ln.setAttribute('x1', px.toFixed(1));
+    ln.setAttribute('x2', px.toFixed(1));
+    const dot = $('#hv-dot');
+    dot.setAttribute('cx', px.toFixed(1));
+    dot.setAttribute('cy', y.toFixed(1));
+    const t1 = $('#hv-t1');
+    const t2 = $('#hv-t2');
+    t1.textContent = 'Loss above ' + chf(v);
+    t2.textContent = 'in ' + pct(p) + ' of years';
+    const right = px > M.l + iw * 0.55;
+    const tx = right ? px - 12 : px + 12;
+    const ty = Math.max(M.t + 14, Math.min(y - 14, Y(0) - 28));
+    [t1, t2].forEach((t) => {
+      t.setAttribute('x', tx.toFixed(1));
+      t.setAttribute('text-anchor', right ? 'end' : 'start');
+    });
+    t1.setAttribute('y', ty.toFixed(1));
+    t2.setAttribute('y', (ty + 15).toFixed(1));
+    const w = Math.max(t1.getComputedTextLength(), t2.getComputedTextLength()) + 16;
+    const bg = $('#hv-bg');
+    bg.setAttribute('x', (right ? tx - w + 8 : tx - 8).toFixed(1));
+    bg.setAttribute('y', (ty - 14).toFixed(1));
+    bg.setAttribute('width', w.toFixed(1));
+    bg.setAttribute('height', '36');
+  }
+  function hideHover() {
+    const h = $('#hv');
+    if (h) h.setAttribute('visibility', 'hidden');
+  }
+  const lecSvg = $('#lec');
+  lecSvg.addEventListener('pointermove', (e) => hoverAt(e.clientX));
+  lecSvg.addEventListener('pointerdown', (e) => hoverAt(e.clientX));
+  lecSvg.addEventListener('pointerleave', hideHover);
+
+  // ---------- Library storage ----------
+  // Saved scenarios live in the viewer's private area of the page's database when the
+  // page runs inside Claude, and in this browser's storage otherwise.
+  const Lib = {
+    mode: 'pending', // 'pending' | 'browser' | 'account'
+    items: new Map(),
+    col: null,
+    loadLocal() {
+      try {
+        const o = JSON.parse(localStorage.getItem(LIB_KEY) || '{}');
+        for (const id in o) if (o[id] && o[id].state) this.items.set(id, { ...o[id], id });
+      } catch (e) { /* storage unavailable */ }
+    },
+    saveLocal() {
+      if (this.mode === 'account') return;
+      try {
+        const o = {};
+        for (const [id, it] of this.items) { const { id: _drop, ...body } = it; o[id] = body; }
+        localStorage.setItem(LIB_KEY, JSON.stringify(o));
+      } catch (e) { /* storage unavailable */ }
+    },
+    async write(id, body) {
+      this.items.set(id, { ...body, id });
+      if (this.mode === 'account') await this.col.doc(id).set(body);
+      else this.saveLocal();
+    },
+    async remove(id) {
+      this.items.delete(id);
+      if (this.mode === 'account') await this.col.doc(id).delete();
+      else this.saveLocal();
+    },
+  };
+
+  const newId = () => 'sc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  const deleted = new Set();
+  const lastWritten = new Map();
+  const queue = new Map();
+  let draining = false;
+  let saveState = 'idle'; // 'idle' | 'saving' | 'saved' | 'error'
+  let saveError = '';
+  let lastSavedAt = null;
+  let saveTimer = null;
+
+  function buildBody() {
+    const st = snapshotState();
+    const r = lastResult && lastInputs && lastInputs.ok ? lastResult : null;
+    return {
+      name: (st.scope.name || '').trim() || 'Untitled scenario',
+      state: st,
+      summary: r ? { mean: r.mean, pAny: r.pAny, p90: r.pct.p90, p99: r.pct.p99 } : null,
+      updatedAt: editedAt || Date.now(),
+    };
+  }
+  const bodyKey = (b) => JSON.stringify([b.name, b.state, b.summary]);
+
+  function enqueueSave() {
+    if (current.kind !== 'saved') return;
+    const id = current.id;
+    const body = buildBody();
+    const key = bodyKey(body);
+    if (lastWritten.get(id) === key && !queue.has(id)) return;
+    queue.set(id, { body, key });
+    Lib.items.set(id, { ...body, id }); // show it in the list straight away
+    renderLibrary();
+    drain();
+  }
+
+  async function drain() {
+    if (draining) return;
+    draining = true;
+    while (queue.size) {
+      const [id, job] = queue.entries().next().value;
+      queue.delete(id);
+      if (deleted.has(id)) continue;
+      saveState = 'saving';
+      setLibStatus();
+      try {
+        await Lib.write(id, job.body);
+        lastWritten.set(id, job.key);
+        saveState = 'saved';
+        saveError = '';
+        lastSavedAt = new Date();
+      } catch (e) {
+        saveState = 'error';
+        saveError = (e && e.code) || 'unknown';
+      }
+    }
+    draining = false;
+    saveWork();
+    setLibStatus();
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { saveTimer = null; enqueueSave(); }, 800);
+    setLibStatus();
+  }
+
+  function flushSave() {
+    if (recalcTimer) { clearTimeout(recalcTimer); recalcTimer = null; recalc(); }
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; enqueueSave(); }
+  }
+
+  const isDirty = () => editPending || !!saveTimer || (current.kind === 'saved' && queue.has(current.id));
+
+  // Working copy in this browser, so a reload reopens what you were doing
+  function saveWork() {
+    try {
+      localStorage.setItem(WORK_KEY, JSON.stringify({ current, state: snapshotState(), editedAt, dirty: isDirty() }));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  // ---------- Opening scenarios ----------
+  function openState(state, ref) {
+    current = ref;
+    editPending = false;
+    applyState(state);
+    lastResult = null;
+    lastInputs = null;
+    renderEmptyResults();
+    recalc();
+    renderLibrary();
+  }
+  function openSaved(id) {
+    const it = Lib.items.get(id);
+    if (!it) return;
+    lastWritten.set(id, bodyKey(it));
+    editedAt = it.updatedAt || 0;
+    openState(it.state, { kind: 'saved', id });
+  }
+  function openExample(key) {
+    const ex = EXAMPLES.find((e) => e.key === key) || EXAMPLES[0];
+    editedAt = 0;
+    openState(exampleState(ex), { kind: 'example', id: ex.key });
+  }
+  function openBlank() {
+    editedAt = 0;
+    openState(BLANK_STATE, { kind: 'blank' });
+  }
+
+  // First edit to an example or a new scenario turns it into one of yours
+  function markEdit() {
+    if (current.kind !== 'saved') {
+      current = { kind: 'saved', id: newId() };
+      renderLibrary();
+    }
+    editPending = true;
+    editedAt = Date.now();
+  }
+
+  // ---------- Library UI ----------
+  const savedSorted = () => [...Lib.items.values()].sort((a, b) => a.name.localeCompare(b.name, 'de-CH'));
+
+  function renderSelect() {
+    const sel = $('#lib-select');
+    sel.textContent = '';
+    if (current.kind === 'blank') {
+      const o = new Option('New scenario (saves when you edit it)', 'blank');
+      sel.append(o);
+    }
+    const mine = document.createElement('optgroup');
+    mine.label = 'My scenarios';
+    const items = savedSorted();
+    if (current.kind === 'saved' && !Lib.items.has(current.id)) {
+      items.push({ id: current.id, name: scopeVals().name || 'Untitled scenario', summary: null });
+    }
+    if (!items.length) {
+      const o = new Option('No saved scenarios yet', '');
+      o.disabled = true;
+      mine.append(o);
+    }
+    for (const it of items) {
+      const label = it.summary ? `${it.name} · ${chf(it.summary.mean)}/yr` : it.name;
+      mine.append(new Option(label, 'sc:' + it.id));
+    }
+    sel.append(mine);
+    const ex = document.createElement('optgroup');
+    ex.label = 'Examples';
+    for (const e of EXAMPLES) ex.append(new Option(e.scope.name, 'ex:' + e.key));
+    sel.append(ex);
+    sel.value = current.kind === 'saved' ? 'sc:' + current.id : current.kind === 'example' ? 'ex:' + current.id : 'blank';
+  }
+
+  function renderRegister() {
+    const items = [...Lib.items.values()];
+    const wrap = $('#reg-wrap');
+    const empty = $('#reg-empty');
+    const body = $('#reg-body');
+    const foot = $('#reg-foot');
+    wrap.hidden = items.length === 0;
+    empty.hidden = items.length > 0;
+    body.textContent = '';
+    foot.textContent = '';
+    if (items.length) {
+      items.sort((a, b) => (b.summary ? b.summary.mean : -1) - (a.summary ? a.summary.mean : -1));
+      let total = 0;
+      let complete = 0;
+      for (const it of items) {
+        const tr = document.createElement('tr');
+        if (current.kind === 'saved' && current.id === it.id) tr.className = 'current';
+        const tdName = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'linkish';
+        btn.dataset.open = it.id;
+        btn.textContent = it.name;
+        const sub = document.createElement('span');
+        sub.className = 'reg-sub';
+        const st = it.state || {};
+        sub.textContent = [(st.scope && st.scope.effect) || '', (st.scope && st.scope.asset) || ''].filter(Boolean).join(' · ');
+        tdName.append(btn, sub);
+        tr.append(tdName);
+        const s = it.summary;
+        if (s) { total += s.mean; complete++; }
+        const cells = s
+          ? [pct(s.pAny), chf(s.mean), chf(s.p90), chf(s.p99)]
+          : ['Incomplete', '–', '–', '–'];
+        cells.push(it.updatedAt ? dateFmt.format(new Date(it.updatedAt)) : '–');
+        for (const text of cells) {
+          const td = document.createElement('td');
+          td.className = 'num';
+          td.textContent = text;
+          tr.append(td);
+        }
+        body.append(tr);
+      }
+      if (complete > 1) {
+        const tr = document.createElement('tr');
+        const a = document.createElement('td');
+        a.textContent = `Total across ${complete} scenarios`;
+        const b = document.createElement('td');
+        b.className = 'num';
+        const c = document.createElement('td');
+        c.className = 'num';
+        c.textContent = chf(total);
+        tr.append(a, b, c);
+        for (let i = 0; i < 3; i++) { const d = document.createElement('td'); d.className = 'num'; tr.append(d); }
+        foot.append(tr);
+      }
+    }
+    const where = Lib.mode === 'account'
+      ? 'Saved privately to your Claude account, so they follow you to any device.'
+      : 'Saved in this browser only. Open this page from Claude to keep scenarios in your account.';
+    $('#reg-note').textContent = (items.length > 1
+      ? 'Expected annual losses add up across scenarios. Percentiles don’t, so there is no combined 1-in-10 or 1-in-100-year figure. '
+      : '') + where;
+  }
+
+  let libMsg = null;
+  let libMsgTimer = null;
+  function libFlash(text) {
+    libMsg = text;
+    clearTimeout(libMsgTimer);
+    libMsgTimer = setTimeout(() => { libMsg = null; setLibStatus(); }, 3500);
+    setLibStatus();
+  }
+
+  function setLibStatus() {
+    const el = $('#lib-status');
+    let cls = '';
+    let text;
+    if (libMsg) {
+      text = libMsg;
+    } else if (current.kind === 'example') {
+      cls = 'info';
+      text = 'Example scenario. Change anything and it saves as your own copy.';
+    } else if (current.kind === 'blank') {
+      cls = 'info';
+      text = 'New scenario. It saves as soon as you start filling it in.';
+    } else if (saveState === 'error') {
+      cls = 'err';
+      text = saveError === 'quota_exceeded'
+        ? 'Couldn’t save: storage is full. Delete a scenario you no longer need, then edit again.'
+        : 'Couldn’t save the last change. Your work is kept in this browser; edit again to retry.';
+    } else if (draining || saveTimer || editPending) {
+      text = 'Saving…';
+    } else {
+      const where = Lib.mode === 'account' ? 'Saved to your account' : 'Saved in this browser';
+      text = lastSavedAt ? `${where} · ${timeFmt.format(lastSavedAt)}` : where;
+    }
+    el.className = 'lib-status' + (cls ? ' ' + cls : '');
+    el.textContent = text;
+    $('#lib-del').disabled = current.kind !== 'saved';
+    // Outside Claude, scenarios live in this browser only, so offer a file backup
+    $('#lib-file').hidden = Lib.mode !== 'browser' || INSIDE_CLAUDE;
+    $('#lib-export').disabled = Lib.items.size === 0;
+  }
+
+  function renderLibrary() {
+    renderSelect();
+    renderRegister();
+    setLibStatus();
+  }
+
+  // ---------- Recalculate ----------
+  let recalcTimer = null;
+  function recalc() {
+    recalcTimer = null;
+    renderScope();
+    const c = collect();
+    lastInputs = c;
+    setStatus(c);
+    if (c.ok) {
+      const t0 = performance.now();
+      const r = FAIR.simulate(c.params);
+      const ms = Math.max(1, Math.round(performance.now() - t0));
+      lastResult = r;
+      renderReadouts(c, r);
+      renderResults(r);
+      $('#runmeta').textContent = `${grp.format(N_YEARS)} simulated years · seed ${c.params.seed} · ${ms} ms`;
+    } else {
+      renderReadouts(c, null);
+      if (!lastResult) renderEmptyResults();
+    }
+    if (editPending) {
+      editPending = false;
+      scheduleSave();
+    }
+    saveWork();
+  }
+  function schedule() {
+    clearTimeout(recalcTimer);
+    recalcTimer = setTimeout(recalc, 150);
+  }
+
+  // ---------- Events ----------
+  const isModelControl = (t) =>
+    t.matches('[data-key]') || SCOPE_ID_LIST.includes(t.id) || t.id === 'seed' ||
+    (t.matches('input[type="radio"]') && ['freqMode', 'vulnMode', 'method'].includes(t.name));
+
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!isModelControl(t) || t.type === 'radio' || t.tagName === 'SELECT') return;
+    markEdit();
+    schedule();
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'lib-select') {
+      const v = t.value;
+      flushSave();
+      if (v.startsWith('sc:')) openSaved(v.slice(3));
+      else if (v.startsWith('ex:')) openExample(v.slice(3));
+      return;
+    }
+    if (t.type === 'radio' && isModelControl(t)) {
+      markEdit();
+      applyModes();
+      recalc();
+    } else if (t.id === 'sc-effect') {
+      markEdit();
+      recalc();
+    }
+  });
+  document.addEventListener('focusout', (e) => {
+    const t = e.target;
+    if (!t.matches('[data-key]')) return;
+    const f = FACTORS[t.dataset.key];
+    const r = parseNumber(t.value, f.kind === 'chf' || f.kind === 'num');
+    if (!r.err) {
+      const formatted = formatInput(r.value, f.kind);
+      if (formatted !== t.value) {
+        t.value = formatted;
+        if (current.kind === 'saved') { editPending = true; schedule(); }
+      }
+    }
+  });
+
+  $('#lib-new').addEventListener('click', () => {
+    flushSave();
+    openBlank();
+    $('#sc-name').focus();
+  });
+  $('#lib-dup').addEventListener('click', () => {
+    flushSave();
+    const st = snapshotState();
+    st.scope.name = (st.scope.name.trim() || 'Untitled scenario') + ' (copy)';
+    editedAt = Date.now();
+    openState(st, { kind: 'saved', id: newId() });
+    enqueueSave();
+    libFlash('Copy created. You’re now editing the copy.');
+  });
+
+  let delArmed = null;
+  $('#lib-del').addEventListener('click', async () => {
+    const btn = $('#lib-del');
+    if (current.kind !== 'saved') return;
+    if (!delArmed) {
+      btn.classList.add('confirm');
+      btn.textContent = 'Click again to delete';
+      delArmed = setTimeout(() => {
+        delArmed = null;
+        btn.classList.remove('confirm');
+        btn.textContent = 'Delete';
+      }, 3500);
+      return;
+    }
+    clearTimeout(delArmed);
+    delArmed = null;
+    btn.classList.remove('confirm');
+    btn.textContent = 'Delete';
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    editPending = false;
+    const id = current.id;
+    const name = (Lib.items.get(id) || {}).name || scopeVals().name || 'Scenario';
+    deleted.add(id);
+    queue.delete(id);
+    try {
+      await Lib.remove(id);
+      libFlash(`Deleted “${name}”.`);
+    } catch (e) {
+      libFlash('Couldn’t delete it. Try again in a moment.');
+      deleted.delete(id);
+    }
+    const next = savedSorted()[0];
+    if (next) openSaved(next.id);
+    else openExample(EXAMPLES[0].key);
+    if (libMsg) setLibStatus();
+  });
+
+  // ---------- Backup to a file (browser storage only) ----------
+  $('#lib-export').addEventListener('click', () => {
+    flushSave();
+    const scenarios = [...Lib.items.values()].map((it) => ({
+      id: it.id, name: it.name, state: it.state, summary: it.summary, updatedAt: it.updatedAt,
+    }));
+    if (!scenarios.length) { libFlash('Nothing to export yet.'); return; }
+    const payload = { app: 'fair-risk-calculator', format: 1, exportedAt: new Date().toISOString(), scenarios };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `fair-scenarios-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    libFlash(`Exported ${scenarios.length} ${scenarios.length === 1 ? 'scenario' : 'scenarios'}.`);
+  });
+
+  $('#lib-import').addEventListener('click', () => $('#lib-import-file').click());
+  $('#lib-import-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let payload;
+    try { payload = JSON.parse(await file.text()); } catch (err) { libFlash('That file isn’t a scenario export. Choose a .json file exported from this calculator.'); return; }
+    const list = payload && Array.isArray(payload.scenarios) ? payload.scenarios : null;
+    if (!list) { libFlash('That file isn’t a scenario export. Choose a .json file exported from this calculator.'); return; }
+    let added = 0;
+    for (const raw of list) {
+      if (!raw || typeof raw !== 'object' || !raw.state || typeof raw.state !== 'object' || !raw.state.v || !raw.state.scope) continue;
+      const validId = typeof raw.id === 'string' && /^[A-Za-z0-9_\-.~:@+]{1,120}$/.test(raw.id);
+      const id = validId && !Lib.items.has(raw.id) ? raw.id : newId();
+      const body = {
+        name: String(raw.name || raw.state.scope.name || 'Untitled scenario').slice(0, 200),
+        state: raw.state,
+        summary: raw.summary && typeof raw.summary.mean === 'number' ? raw.summary : null,
+        updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now(),
+      };
+      try {
+        await Lib.write(id, body);
+        lastWritten.set(id, bodyKey(body));
+        added++;
+      } catch (err) { /* skip this one */ }
+    }
+    renderLibrary();
+    libFlash(added ? `Imported ${added} ${added === 1 ? 'scenario' : 'scenarios'}.` : 'No scenarios found in that file.');
+  });
+
+  $('#reg-body').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-open]');
+    if (!btn) return;
+    flushSave();
+    openSaved(btn.dataset.open);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    $('.libbar').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { flushSave(); saveWork(); }
+  });
+  window.addEventListener('pagehide', () => { flushSave(); saveWork(); });
+
+  // ---------- Copy summary ----------
+  function summaryText() {
+    const sc = scopeVals();
+    const r = lastResult;
+    const c = lastInputs;
+    const L = [];
+    L.push(`FAIR risk analysis: ${sc.name || 'Untitled scenario'}`);
+    L.push(`Asset: ${sc.asset || '-'} | Threat: ${sc.threat || '-'} | Effect: ${sc.effect}`);
+    if (sc.event) L.push(`Loss event: ${sc.event}`);
+    if (sc.assume) L.push(`Assumptions: ${sc.assume}`);
+    L.push('');
+    L.push('Inputs (min / most likely / max)');
+    for (const k of c.keys) {
+      const f = FACTORS[k];
+      L.push(`- ${f.name}: ${PARTS.map((p) => $(`#${k}-${p}`).value).join(' / ')} (${f.unit})`);
+    }
+    if (r.vulnDerived !== null) L.push(`- Derived vulnerability: ${pct(r.vulnDerived)}`);
+    L.push(`- Expected loss event frequency: ${fmtLam(r.meanLambda)} per year`);
+    L.push('');
+    L.push('Results');
+    L.push(`- Chance of at least one loss event in a year: ${pct(r.pAny)}`);
+    L.push(`- Expected annual loss: ${chfFull(r.mean)}`);
+    L.push(`- Annual loss P50 / P90 / P95 / P99: ${[r.pct.p50, r.pct.p90, r.pct.p95, r.pct.p99].map(chfFull).join(' / ')}`);
+    const tot = r.primaryMean + r.secondaryMean;
+    if (tot > 0) L.push(`- Share of expected loss: primary ${pct(r.primaryMean / tot)}, secondary ${pct(r.secondaryMean / tot)}`);
+    L.push('');
+    L.push(`Method: ${grp.format(r.n)} simulated years, PERT ranges, ${r.method === 'average' ? 'average loss (LEF × loss magnitude)' : 'Poisson event counts'}, seed ${c.params.seed}.`);
+    return L.join('\n');
+  }
+  let msgTimer = null;
+  function flash(text) {
+    const m = $('#action-msg');
+    m.textContent = text;
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => { m.textContent = ''; }, 3000);
+  }
+  $('#copy').addEventListener('click', () => {
+    if (!lastResult || !lastInputs || !lastInputs.ok) { flash('Complete the highlighted inputs first.'); return; }
+    const text = summaryText();
+    const fallback = () => {
+      const ta = $('#copy-fallback');
+      ta.value = text;
+      ta.hidden = false;
+      ta.focus();
+      ta.select();
+      flash('Copying isn’t allowed here. The summary is selected below; copy it with your keyboard.');
+    };
+    try {
+      navigator.clipboard.writeText(text).then(() => { $('#copy-fallback').hidden = true; flash('Summary copied'); }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  // Redraw the chart when its box changes width
+  let lastW = 0;
+  new ResizeObserver(() => {
+    const w = Math.floor($('#lec-box').clientWidth);
+    if (w === lastW) return;
+    lastW = w;
+    if (lastResult && lastInputs && lastInputs.ok) drawLEC(lastResult);
+    else if (!lastResult) lecMessage('Results appear once every factor has a range.');
+  }).observe($('#lec-box'));
+
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      $('#mbar').hidden = entries[0].isIntersecting;
+    }).observe($('#tiles'));
+  }
+
+  // ---------- Account storage ----------
+  async function connectAccount() {
+    const fallback = () => {
+      if (Lib.mode !== 'account') { Lib.mode = 'browser'; renderLibrary(); }
+    };
+    if (!window.claude || typeof window.claude.use !== 'function') { fallback(); return; }
+    let db = null;
+    let user = null;
+    try {
+      [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    } catch (e) { fallback(); return; }
+    if (!db || !user) { fallback(); return; }
+    let uid = null;
+    try { uid = await user.id(); } catch (e) { uid = null; }
+    if (!uid) { fallback(); return; }
+
+    const col = db.collection('data/users/' + uid);
+    let settled = false;
+    col.onSnapshot(async (snap) => {
+      const remote = new Map();
+      snap.docs.forEach((d) => {
+        const b = d.data();
+        if (b && b.state && !deleted.has(d.id)) remote.set(d.id, { ...b, id: d.id });
+      });
+      // Keep unsaved local edits visible until their write lands
+      for (const id of queue.keys()) if (Lib.items.has(id)) remote.set(id, Lib.items.get(id));
+
+      if (!settled && !snap.metadata.fromCache) {
+        settled = true;
+        const localOnly = Lib.mode === 'account' ? [] : [...Lib.items.values()].filter((it) => !remote.has(it.id) && !deleted.has(it.id));
+        Lib.mode = 'account';
+        Lib.col = col;
+        let moved = 0;
+        for (const it of localOnly) {
+          const { id, ...body } = it;
+          try {
+            await col.doc(id).set(body);
+            remote.set(id, it);
+            lastWritten.set(id, bodyKey(it));
+            moved++;
+          } catch (e) { /* stays in this browser */ }
+        }
+        if (moved === localOnly.length) {
+          try { localStorage.removeItem(LIB_KEY); } catch (e) { /* storage unavailable */ }
+        }
+        Lib.items = remote;
+        // A newer copy of the open scenario saved from another device
+        if (current.kind === 'saved' && remote.has(current.id) && !isDirty()) {
+          const it = remote.get(current.id);
+          if ((it.updatedAt || 0) > (editedAt || 0)) openSaved(current.id);
+        }
+        if (current.kind === 'saved' && isDirty()) scheduleSave();
+        renderLibrary();
+        return;
+      }
+      if (!settled) return;
+      Lib.items = remote;
+      renderLibrary();
+    }, () => {
+      // The live link ended; keep working with what is loaded and fall back to this browser
+      Lib.mode = 'browser';
+      Lib.saveLocal();
+      renderLibrary();
+    });
+  }
+
+  // ---------- Start ----------
+  function boot() {
+    Lib.loadLocal();
+    let work = null;
+    try { work = JSON.parse(localStorage.getItem(WORK_KEY) || 'null'); } catch (e) { work = null; }
+
+    // Carry over a scenario edited in the first version of this page
+    if (!work) {
+      let v1 = null;
+      try { v1 = JSON.parse(localStorage.getItem(V1_KEY) || 'null'); } catch (e) { v1 = null; }
+      if (v1 && v1.edited && v1.v) {
+        work = {
+          current: { kind: 'saved', id: newId() },
+          state: { scope: v1.scope, v: v1.v, freqMode: v1.freqMode, vulnMode: v1.vulnMode, method: v1.method, seed: v1.seed },
+          editedAt: Date.now(),
+          dirty: true,
+        };
+      }
+    }
+
+    if (work && work.current && work.state) {
+      current = work.current;
+      editedAt = work.editedAt || 0;
+      applyState(work.state);
+      if (current.kind === 'saved' && Lib.items.has(current.id) && !work.dirty) {
+        lastWritten.set(current.id, bodyKey(Lib.items.get(current.id)));
+      }
+      editPending = current.kind === 'saved' && !!work.dirty;
+      renderEmptyResults();
+      recalc();
+      renderLibrary();
+    } else {
+      openExample(EXAMPLES[0].key);
+    }
+    connectAccount();
+  }
+  boot();
+})();
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
