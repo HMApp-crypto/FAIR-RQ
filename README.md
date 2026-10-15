@@ -1,6 +1,6 @@
 # FAIR Risk Calculator
 
-A cyber risk quantification calculator based on the FAIR model. Enter each factor as a min / most likely / max range and the annual loss exposure recalculates as you type (10,000 simulated years per run).
+A cyber risk quantification calculator based on the FAIR model. Enter each factor as a range (lowest, best guess, highest), and give frequencies either as times per year or as once every X years. The annual loss exposure recalculates as you type (10,000 simulated years per run).
 
 It is a static web app: no server, no database, no sign-in. Everything runs in the browser, and scenarios are saved in that browser. Nothing is sent anywhere.
 

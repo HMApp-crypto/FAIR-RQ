@@ -596,7 +596,7 @@ table.reg tfoot td { font-weight: 600; border-bottom: 0; }
             <h2 id="freq-title">Loss event frequency</h2>
           </div>
         </div>
-        <p class="panel-def">How often the loss event is likely to happen in a year.</p>
+        <p class="panel-def">How often the loss event is likely to happen. For each input, give a range you’d be comfortable defending: the lowest value you’d believe, your best guess, and the highest you’d believe.</p>
         <div class="seg freq-mode" role="radiogroup" aria-label="How to estimate loss event frequency">
           <input type="radio" name="freqMode" id="fm-derive" value="derive"><label for="fm-derive">Threat events × vulnerability</label>
           <input type="radio" name="freqMode" id="fm-direct" value="direct"><label for="fm-direct">Estimate directly</label>
@@ -757,7 +757,7 @@ table.reg tfoot td { font-weight: 600; border-bottom: 0; }
       <div>
         <h3>Each simulated year</h3>
         <ol>
-          <li>Every factor is drawn from its range using a PERT distribution, which peaks at the most likely value and tapers towards min and max.</li>
+          <li>Every factor is drawn from its range using a PERT distribution, which peaks at your best guess and tapers towards the lowest and highest values.</li>
           <li>Loss event frequency is threat event frequency × vulnerability, or your direct estimate.</li>
           <li>The number of loss events that year is drawn from a Poisson distribution with that frequency as its average, so many years have none.</li>
           <li>Each event gets its own primary loss. With a probability equal to that year's secondary loss event frequency, it also triggers a secondary loss.</li>
@@ -1018,7 +1018,8 @@ if (typeof module !== 'undefined') module.exports = FAIR;
   const V1_KEY = 'fair-calc-v1';
 
   const FACTORS = {
-    tef: { name: 'Threat event frequency', unit: 'attempts per year', kind: 'num',
+    tef: { name: 'Threat event frequency', unit: 'attempts per year', kind: 'num', freq: true,
+      yearsUnit: 'years between attempts', noun: 'attempts',
       def: 'How often a threat actor acts against the asset in a way that could cause loss, whether or not it succeeds.' },
     vuln: { name: 'Vulnerability', unit: '% of attempts that succeed', kind: 'pct',
       def: 'The probability that a threat event becomes a loss event.' },
@@ -1026,8 +1027,9 @@ if (typeof module !== 'undefined') module.exports = FAIR;
       def: 'How capable this threat community is compared with attackers in general. 50 is a typical attacker.' },
     rs: { name: 'Resistance strength', unit: 'percentile, 0–100', kind: 'score', sub: true,
       def: 'The attacker percentile your controls can hold off. At 70 you stop 70% of attackers.' },
-    lef: { name: 'Loss event frequency', unit: 'loss events per year', kind: 'num',
-      def: 'How often the loss actually happens. Use decimals for rare events: 0.1 means once in ten years.' },
+    lef: { name: 'Loss event frequency', unit: 'loss events per year', kind: 'num', freq: true,
+      yearsUnit: 'years between loss events', noun: 'loss events',
+      def: 'How often the loss actually happens. For rare events, choose “Once every X years”.' },
     pl: { name: 'Primary loss per event', unit: 'CHF', kind: 'chf',
       def: 'Costs your organisation bears directly: lost productivity, incident response, replacing systems.' },
     slef: { name: 'Secondary loss event frequency', unit: '% of loss events', kind: 'pct',
@@ -1194,20 +1196,48 @@ if (typeof module !== 'undefined') module.exports = FAIR;
       vals.forEach((v, i) => { if (v > 100) bad.push(i); });
       if (bad.length) msg = 'Use values between 0 and 100.';
     }
+    const years = isYears(key);
+    if (!msg && years) {
+      vals.forEach((v, i) => { if (v <= 0) bad.push(i); });
+      if (bad.length) msg = 'Use a number of years above 0.';
+    }
+    // Every frequency becomes a yearly rate; the inputs always run rarest → most often
+    const rates = years ? vals.map((v) => 1 / v) : vals;
     if (!msg) {
-      if (vals[0] > vals[1]) { bad.push(0, 1); msg = 'Min can’t be higher than most likely.'; }
-      else if (vals[1] > vals[2]) { bad.push(1, 2); msg = 'Most likely can’t be higher than max.'; }
+      const [lo, ml, hi] = f.freq ? ['Rarest', 'Best guess', 'most often'] : ['Lowest', 'Best guess', 'highest'];
+      const cmp = f.freq ? 'more often' : 'higher';
+      if (rates[0] > rates[1]) { bad.push(0, 1); msg = `${lo} can’t be ${cmp} than the best guess.`; }
+      else if (rates[1] > rates[2]) { bad.push(1, 2); msg = `${ml} can’t be ${cmp} than ${hi}.`; }
     }
     els.forEach((el, i) => el.setAttribute('aria-invalid', bad.includes(i) ? 'true' : 'false'));
     err.textContent = msg;
     err.hidden = !msg;
-    return { ok: !msg, empty: false, raw: vals, range: f.kind === 'pct' ? vals.map((v) => v / 100) : vals };
+    return { ok: !msg, empty: false, raw: rates, range: f.kind === 'pct' ? vals.map((v) => v / 100) : rates };
+  }
+
+  // ---------- Frequency units: times per year, or once every X years ----------
+  const FREQ_KEYS = FACTOR_KEYS.filter((k) => FACTORS[k].freq);
+  const isYears = (key) => FACTORS[key].freq && radioVal('unit-' + key) === 'years';
+  const unitText = (key) => (isYears(key) ? FACTORS[key].yearsUnit : FACTORS[key].unit);
+  // Rare events read better as "once every X years"
+  function guessUnit(vals) {
+    const r = parseNumber(vals[1] || '', true);
+    return !r.err && r.value > 0 && r.value < 1 ? 'years' : 'rate';
+  }
+  function flipValue(raw) {
+    const r = parseNumber(raw, true);
+    if (r.err || r.value <= 0) return r.err ? raw : '';
+    const x = 1 / r.value;
+    return x >= 10 ? String(Math.round(x)) : String(+x.toPrecision(2));
+  }
+  function applyUnitText(key) {
+    $(`#${key}-unit`).textContent = unitText(key);
   }
 
   // ---------- Building the factor rows ----------
   function tripleHTML(key) {
     const mode = FACTORS[key].kind === 'chf' ? 'text' : 'decimal';
-    const labels = ['Min', 'Most likely', 'Max'];
+    const labels = FACTORS[key].freq ? ['Rarest', 'Best guess', 'Most often'] : ['Lowest', 'Best guess', 'Highest'];
     return `<div class="triple-row">
       <div class="triple" role="group" aria-labelledby="${key}-name">
         ${PARTS.map((p, i) => `<label class="cell"><span>${labels[i]}</span><input type="text" inputmode="${mode}" id="${key}-${p}" data-key="${key}" autocomplete="off" spellcheck="false"></label>`).join('')}
@@ -1217,6 +1247,21 @@ if (typeof module !== 'undefined') module.exports = FAIR;
   }
   function factorHTML(key) {
     const f = FACTORS[key];
+    if (f.freq) {
+      return `<div class="factor" id="f-${key}">
+      <div class="factor-head">
+        <span class="factor-name" id="${key}-name">${f.name}</span>
+        <div class="seg seg-sm" role="radiogroup" aria-label="How to enter ${f.name.toLowerCase()}">
+          <input type="radio" name="unit-${key}" id="${key}-u-rate" value="rate"><label for="${key}-u-rate">Times per year</label>
+          <input type="radio" name="unit-${key}" id="${key}-u-years" value="years"><label for="${key}-u-years">Once every X years</label>
+        </div>
+      </div>
+      <p class="factor-def">${f.def}</p>
+      <span class="unit" id="${key}-unit">${f.unit}</span>
+      ${tripleHTML(key)}
+      <p class="factor-err" id="${key}-err" hidden></p>
+    </div>`;
+    }
     return `<div class="factor${f.sub ? ' sub' : ''}" id="f-${key}">
       <div class="factor-head"><span class="factor-name" id="${key}-name">${f.name}</span><span class="unit">${f.unit}</span></div>
       <p class="factor-def">${f.def}</p>
@@ -1301,15 +1346,26 @@ if (typeof module !== 'undefined') module.exports = FAIR;
     for (const k of FACTOR_KEYS) v[k] = PARTS.map((p) => $(`#${k}-${p}`).value);
     const scope = {};
     for (const k in SCOPE_IDS) scope[k] = $('#' + SCOPE_IDS[k]).value;
-    return { scope, v, freqMode: radioVal('freqMode'), vulnMode: radioVal('vulnMode'), method: radioVal('method'), seed: $('#seed').value };
+    const freqUnit = Object.fromEntries(FREQ_KEYS.map((k) => [k, radioVal('unit-' + k)]));
+    return { scope, v, freqUnit, freqMode: radioVal('freqMode'), vulnMode: radioVal('vulnMode'), method: radioVal('method'), seed: $('#seed').value };
   }
   function applyState(st) {
     const scope = st.scope || {};
     for (const k in SCOPE_IDS) $('#' + SCOPE_IDS[k]).value = scope[k] != null ? scope[k] : (k === 'effect' ? 'Confidentiality' : '');
     for (const k of FACTOR_KEYS) {
       const vals = (st.v && st.v[k]) || ['', '', ''];
-      PARTS.forEach((p, i) => { $(`#${k}-${p}`).value = vals[i] != null ? vals[i] : ''; });
       $(`#${k}-err`).hidden = true;
+      if (!FACTORS[k].freq) {
+        PARTS.forEach((p, i) => { $(`#${k}-${p}`).value = vals[i] != null ? vals[i] : ''; });
+        continue;
+      }
+      // Older scenarios store yearly rates only; show rare ones as "once every X years"
+      const saved = st.freqUnit && st.freqUnit[k];
+      const unit = saved === 'years' || saved === 'rate' ? saved : guessUnit(vals);
+      const shown = !saved && unit === 'years' ? vals.map((x) => flipValue(x != null ? x : '')) : vals;
+      setRadio('unit-' + k, unit);
+      PARTS.forEach((p, i) => { $(`#${k}-${p}`).value = shown[i] != null ? shown[i] : ''; });
+      applyUnitText(k);
     }
     setRadio('freqMode', st.freqMode || 'derive');
     setRadio('vulnMode', st.vulnMode || 'direct');
@@ -1397,7 +1453,11 @@ if (typeof module !== 'undefined') module.exports = FAIR;
   function renderReadouts(c, r) {
     const fr = $('#freq-readout');
     if (r) {
-      fr.innerHTML = `<span>Expected loss event frequency <b>${fmtLam(r.meanLambda)}</b> per year</span><span class="sub">${freqText(r.meanLambda)}</span>`;
+      const lam = r.meanLambda;
+      const head = lam > 0 && lam < 1
+        ? `Expect a loss event about once every <b>${fmtNum(1 / lam)}</b> years`
+        : `Expect about <b>${fmtLam(lam)}</b> loss events per year`;
+      fr.innerHTML = `<span>${head}</span><span class="sub">${lam > 0 && lam < 1 ? 'That’s ' + fmtLam(lam) + ' per year on average.' : freqText(lam)}</span>`;
     } else {
       fr.innerHTML = '<span class="sub">Complete the inputs above to see the expected frequency.</span>';
     }
@@ -1985,7 +2045,7 @@ if (typeof module !== 'undefined') module.exports = FAIR;
   // ---------- Events ----------
   const isModelControl = (t) =>
     t.matches('[data-key]') || SCOPE_ID_LIST.includes(t.id) || t.id === 'seed' ||
-    (t.matches('input[type="radio"]') && ['freqMode', 'vulnMode', 'method'].includes(t.name));
+    (t.matches('input[type="radio"]') && ['freqMode', 'vulnMode', 'method', ...FREQ_KEYS.map((k) => 'unit-' + k)].includes(t.name));
 
   document.addEventListener('input', (e) => {
     const t = e.target;
@@ -2004,6 +2064,12 @@ if (typeof module !== 'undefined') module.exports = FAIR;
     }
     if (t.type === 'radio' && isModelControl(t)) {
       markEdit();
+      if (t.name.startsWith('unit-')) {
+        // Same estimate, new unit: 0.2 a year becomes once every 5 years
+        const key = t.name.slice(5);
+        PARTS.forEach((p) => { const el = $(`#${key}-${p}`); el.value = flipValue(el.value); });
+        applyUnitText(key);
+      }
       applyModes();
       recalc();
     } else if (t.id === 'sc-effect') {
@@ -2151,10 +2217,10 @@ if (typeof module !== 'undefined') module.exports = FAIR;
     if (sc.event) L.push(`Loss event: ${sc.event}`);
     if (sc.assume) L.push(`Assumptions: ${sc.assume}`);
     L.push('');
-    L.push('Inputs (min / most likely / max)');
+    L.push('Inputs (lowest / best guess / highest; frequencies rarest / best guess / most often)');
     for (const k of c.keys) {
       const f = FACTORS[k];
-      L.push(`- ${f.name}: ${PARTS.map((p) => $(`#${k}-${p}`).value).join(' / ')} (${f.unit})`);
+      L.push(`- ${f.name}: ${PARTS.map((p) => $(`#${k}-${p}`).value).join(' / ')} (${f.freq ? unitText(k) : f.unit})`);
     }
     if (r.vulnDerived !== null) L.push(`- Derived vulnerability: ${pct(r.vulnDerived)}`);
     L.push(`- Expected loss event frequency: ${fmtLam(r.meanLambda)} per year`);
